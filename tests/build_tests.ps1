@@ -1,12 +1,12 @@
-﻿$ErrorActionPreference='Stop'
+$ErrorActionPreference='Stop'
 $root=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $framework=Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319'
 $refs=@('System.dll','System.Core.dll','System.Security.dll','System.Web.Extensions.dll')
 $arguments=@('/nologo','/target:winexe','/platform:x64','/optimize+')
 foreach($r in $refs){$arguments+="/reference:$(Join-Path $framework $r)"}
-& (Join-Path $framework 'csc.exe') @arguments "/out:$(Join-Path $root 'build\bin\ProtocolTests.exe')" (Join-Path $root 'src\Core.cs') (Join-Path $root 'src\Sessions.cs') (Join-Path $PSScriptRoot 'ProtocolTests.cs')
+& (Join-Path $framework 'csc.exe') @arguments "/out:$(Join-Path $root 'build\bin\ProtocolTests.exe')" (Join-Path $root 'src\Core.cs') (Join-Path $root 'src\Sessions.cs') (Join-Path $root 'src\FullChainLatency.cs') (Join-Path $PSScriptRoot 'ProtocolTests.cs')
 if($LASTEXITCODE){throw 'Protocol test build failed'}
-& (Join-Path $framework 'csc.exe') @arguments "/out:$(Join-Path $root 'build\bin\TwoMachineTests.exe')" (Join-Path $root 'src\Core.cs') (Join-Path $root 'src\Sessions.cs') (Join-Path $PSScriptRoot 'TwoMachineTests.cs')
+& (Join-Path $framework 'csc.exe') @arguments "/out:$(Join-Path $root 'build\bin\TwoMachineTests.exe')" (Join-Path $root 'src\Core.cs') (Join-Path $root 'src\Sessions.cs') (Join-Path $root 'src\FullChainLatency.cs') (Join-Path $PSScriptRoot 'TwoMachineTests.cs')
 if($LASTEXITCODE){throw 'Two-machine test build failed'}
 & (Join-Path $framework 'csc.exe') @arguments "/out:$(Join-Path $root 'build\bin\DiscoveryTests.exe')" (Join-Path $root 'src\Core.cs') (Join-Path $PSScriptRoot 'DiscoveryTests.cs')
 if($LASTEXITCODE){throw 'Discovery test build failed'}

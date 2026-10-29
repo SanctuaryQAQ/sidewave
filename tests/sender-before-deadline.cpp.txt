@@ -1,0 +1,806 @@
+#define VK_USE_PLATFORM_WIN32_KHR
+#define NOMINMAX
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#include <vulkan/vulkan.h>
+#include "pyrowave.h"
+
+#include <Windows.h>
+#include <d3d11_4.h>
+#include <dxgi1_2.h>
+#include <wrl/client.h>
+
+#include <algorithm>
+#include <atomic>
+#include <condition_variable>
+#include <mutex>
+#include <memory>
+#include <chrono>
+#include <cmath>
+#include <cstdint>
+#include <cstdio>
+#include <cstring>
+#include <string>
+#include <thread>
+#include <vector>
+#include "pyrowave_rio_sender.h"
+#include "pyrowave_live_stats_writer.h"
+#include "video_crypto.h"
+#include "desktop_pointer.h"
+
+namespace {
+VideoCrypto videoCrypto;
+using Microsoft::WRL::ComPtr;
+using Clock = std::chrono::steady_clock;
+uint64_t UtcMs()
+{
+	FILETIME ft = {};
+	GetSystemTimePreciseAsFileTime(&ft);
+	ULARGE_INTEGER value = {};
+	value.LowPart = ft.dwLowDateTime;
+	value.HighPart = ft.dwHighDateTime;
+	return (value.QuadPart - 116444736000000000ULL) / 10000ULL;
+}
+int Width = 2560;
+int Height = 1440;
+constexpr int DefaultFps = 165;
+constexpr int WarmupSeconds = 3;
+constexpr int MeasureSeconds = 20;
+constexpr size_t DefaultMaxFrameBytes = 180 * 1024;
+constexpr size_t PacketBytes = 1380;
+constexpr size_t MaxDatagramBytes = 1472; // IPv4 UDP payload within a 1500-byte LAN MTU.
+
+#pragma pack(push, 1)
+struct DatagramHeader {
+	uint32_t magic;
+	uint32_t frame;
+	uint64_t captureUtcMs;
+	uint16_t index;
+	uint16_t count;
+	uint16_t fragment;
+	uint16_t fragments;
+	uint32_t packetBytes;
+};
+#pragma pack(pop)
+static_assert(sizeof(DatagramHeader) == 28, "unexpected PyroWave UDP v5 header size");
+constexpr size_t FragmentPayloadBytes = MaxDatagramBytes - 32 - sizeof(DatagramHeader);
+
+// Bound the queue to one new frame. Capture/encode never wait for UDP syscalls.
+class DatagramSender {
+ struct Frame {
+  std::vector<uint8_t> bytes;
+  std::vector<pyrowave_packet> packets;
+  size_t count = 0;
+  uint32_t id = 0;
+  uint64_t utc = 0;
+  Clock::time_point started;
+ } pending;
+ SOCKET socket;
+ size_t windowSize;
+ bool segmented;
+ bool useIocp;
+ bool useRio;
+ bool useFec;
+ bool contiguous;
+ bool connected;
+ bool skipCompletionEnabled;
+ sockaddr_in destination;
+ std::mutex mutex, metricsMutex;
+ std::condition_variable ready;
+ bool available = false, stopping = false;
+ std::thread worker;
+ std::vector<double> sendSamples, totalSamples;
+ void Run() {
+  SetThreadPriority(GetCurrentThread(),THREAD_PRIORITY_ABOVE_NORMAL);
+  Frame frame;
+  frame.bytes.resize(pending.bytes.size());frame.packets.resize(pending.packets.size());
+  struct Slot { WSAOVERLAPPED overlap{};DatagramHeader header{};bool active=false; };
+  std::vector<Slot> slots(windowSize);
+  std::vector<uint8_t> wire;
+  if(contiguous&&!segmented&&!useRio)wire.resize(windowSize*MaxDatagramBytes);
+  if(segmented)wire.reserve((pending.bytes.size()/FragmentPayloadBytes+pending.packets.size()+1)*MaxDatagramBytes);
+  std::vector<uint8_t> parity;
+  std::unique_ptr<RioDatagramWriter> rio;
+  if(useRio){
+   wire.reserve(1024*MaxDatagramBytes);rio.reset(new RioDatagramWriter());
+   rio->Init(socket,destination,reinterpret_cast<char*>(wire.data()),ULONG(wire.capacity()));
+  }
+  HANDLE completionPort=useIocp?CreateIoCompletionPort(reinterpret_cast<HANDLE>(socket),nullptr,0,1):nullptr;
+  if(useIocp&&!completionPort){error.store(GetLastError());return;}
+  bool skipSync=false;
+  if(useIocp&&!useRio&&skipCompletionEnabled){
+   // Non-IFS Winsock providers cannot safely skip synchronous IOCP notices.
+   DWORD bytes=0;WSAEnumProtocolsW(nullptr,nullptr,&bytes);
+   std::vector<uint8_t> protocols(bytes);
+   int count=bytes?WSAEnumProtocolsW(nullptr,reinterpret_cast<WSAPROTOCOL_INFOW*>(protocols.data()),&bytes):SOCKET_ERROR;
+   bool allIfs=count>0;
+   auto entries=reinterpret_cast<WSAPROTOCOL_INFOW*>(protocols.data());
+   for(int i=0;i<count;++i)if(!(entries[i].dwServiceFlags1&XP1_IFS_HANDLES))allIfs=false;
+   if(allIfs)skipSync=SetFileCompletionNotificationModes(reinterpret_cast<HANDLE>(socket),FILE_SKIP_COMPLETION_PORT_ON_SUCCESS)!=FALSE;
+  }
+  skipSyncCompletion.store(skipSync);
+  if(!useIocp)for(auto &slot:slots)slot.overlap.hEvent=WSACreateEvent();
+  auto finish=[&](Slot &slot) {
+   if(!slot.active)return;
+   if(useIocp){
+    while(slot.active){
+     OVERLAPPED_ENTRY entries[64]{};ULONG count=0;
+     if(!GetQueuedCompletionStatusEx(completionPort,entries,64,&count,INFINITE,FALSE)){error.store(GetLastError());break;}
+     for(ULONG i=0;i<count;++i){
+      auto done=reinterpret_cast<Slot*>(entries[i].lpOverlapped);
+      if(entries[i].Internal){DWORD transferred=0,flags=0;if(!WSAGetOverlappedResult(socket,&done->overlap,&transferred,FALSE,&flags))error.store(WSAGetLastError());}
+      done->active=false;
+     }
+    }
+    return;
+   }
+   DWORD transferred=0,flags=0;
+   if(!WSAGetOverlappedResult(socket,&slot.overlap,&transferred,TRUE,&flags))error.store(WSAGetLastError());
+   slot.active=false;
+  };
+  while(true) {
+   { std::unique_lock<std::mutex> lock(mutex);ready.wait(lock,[&]{return stopping||available;});
+    if(!available&&stopping)break;
+    frame.bytes.swap(pending.bytes);frame.packets.swap(pending.packets);
+    frame.count=pending.count;frame.id=pending.id;frame.utc=pending.utc;frame.started=pending.started;available=false;
+   }
+   const auto begin=Clock::now();size_t sequence=0;uint64_t bytes=0;
+   if(segmented||useRio||!contiguous)wire.clear();
+   if(useFec)parity.assign(frame.count*FragmentPayloadBytes,0);
+   for(size_t i=0;i<frame.count&&!error.load();++i) {
+    const auto &packet=frame.packets[i];const size_t fragments=(packet.size+FragmentPayloadBytes-1)/FragmentPayloadBytes;
+    if(fragments>UINT16_MAX){error.store(WSAEMSGSIZE);break;}
+    for(size_t f=0;f<fragments+(useFec?1:0)&&!error.load();++f) {
+     const bool parityFragment=f==fragments;
+     size_t offset=f*FragmentPayloadBytes;size_t length=parityFragment?FragmentPayloadBytes:std::min(FragmentPayloadBytes,packet.size-offset);
+     uint8_t* parityBytes=useFec?parity.data()+i*FragmentPayloadBytes:nullptr;
+     const uint8_t* payload=parityFragment?parityBytes:frame.bytes.data()+packet.offset+offset;
+     if(useFec&&!parityFragment)for(size_t b=0;b<length;++b)parityBytes[b]^=payload[b];
+     DatagramHeader header{0x50575258u,frame.id,frame.utc,uint16_t(i),uint16_t(frame.count),uint16_t(f),uint16_t(fragments),uint32_t(packet.size)};
+     if(segmented||useRio){
+      size_t start=wire.size();
+      if(useRio&&start+MaxDatagramBytes>wire.capacity()){error.store(WSAEMSGSIZE);break;}
+      wire.resize(start+MaxDatagramBytes,0);
+      // Each segment is a complete authenticated MTU-sized datagram.
+      // Padding is inside GCM; packetBytes retains the actual codec length.
+      unsigned char padded[FragmentPayloadBytes]{};
+      std::memcpy(padded,payload,length);
+      size_t sealed=videoCrypto.Seal(&header,sizeof(header),padded,sizeof(padded),wire.data()+start);
+      if(sealed!=MaxDatagramBytes){error.store(WSAEMSGSIZE);break;}
+      continue;
+     }
+     const size_t slotIndex=sequence++%slots.size();auto &slot=slots[slotIndex];finish(slot);
+     WSAEVENT event=slot.overlap.hEvent;slot.overlap={};slot.overlap.hEvent=event;if(event)WSAResetEvent(event);
+     slot.header=header;
+     WSABUF buffers[2]={{ULONG(sizeof(slot.header)),reinterpret_cast<char*>(&slot.header)},{ULONG(length),reinterpret_cast<char*>(const_cast<uint8_t*>(payload))}};
+     WSABUF single{};
+     if(contiguous){uint8_t* bytes=wire.data()+slotIndex*MaxDatagramBytes;size_t sealed=videoCrypto.Seal(&header,sizeof(header),payload,length,bytes);single={ULONG(sealed),reinterpret_cast<char*>(bytes)};}
+     int result=connected?WSASend(socket,contiguous?&single:buffers,contiguous?1:2,nullptr,0,&slot.overlap,nullptr):WSASendTo(socket,contiguous?&single:buffers,contiguous?1:2,nullptr,0,reinterpret_cast<sockaddr*>(&destination),sizeof(destination),&slot.overlap,nullptr);
+     if(result==SOCKET_ERROR){int code=WSAGetLastError();if(code!=WSA_IO_PENDING){error.store(code);break;}slot.active=true;}
+     else if(useIocp&&!skipSync)slot.active=true;
+     bytes+=contiguous?single.len:sizeof(slot.header)+length;
+    }
+   }
+   if(useRio){rio->Send(ULONG(wire.size()),ULONG(MaxDatagramBytes));bytes+=wire.size();}
+   else if(segmented){
+    // Windows segments each batch into MTU-sized UDP datagrams. Padding keeps
+    // every segment aligned; packetBytes defines the meaningful final bytes.
+    constexpr size_t batchBytes=32*MaxDatagramBytes;
+    for(size_t offset=0;offset<wire.size()&&!error.load();offset+=batchBytes){
+     auto &slot=slots[sequence++%slots.size()];finish(slot);
+     WSAEVENT event=slot.overlap.hEvent;slot.overlap={};slot.overlap.hEvent=event;if(event)WSAResetEvent(event);
+     size_t length=std::min(batchBytes,wire.size()-offset);
+     WSABUF buffer{ULONG(length),reinterpret_cast<char*>(wire.data()+offset)};
+     int result=WSASendTo(socket,&buffer,1,nullptr,0,reinterpret_cast<sockaddr*>(&destination),sizeof(destination),&slot.overlap,nullptr);
+     if(result==SOCKET_ERROR){int code=WSAGetLastError();if(code!=WSA_IO_PENDING){error.store(code);break;}slot.active=true;}
+     else if(useIocp&&!skipSync)slot.active=true;
+     bytes+=length;
+    }
+   }
+   for(auto &slot:slots)finish(slot);
+   if(error.load())break;
+   sentFrames.fetch_add(1);sentBytes.fetch_add(bytes);totalBytes.fetch_add(bytes);
+   {std::lock_guard<std::mutex> lock(metricsMutex);sendSamples.push_back(std::chrono::duration<double,std::milli>(Clock::now()-begin).count());totalSamples.push_back(std::chrono::duration<double,std::milli>(Clock::now()-frame.started).count());}
+  }
+  for(auto &slot:slots){finish(slot);if(slot.overlap.hEvent)WSACloseEvent(slot.overlap.hEvent);}
+  if(completionPort)CloseHandle(completionPort);
+ }
+public:
+ std::atomic<uint64_t> sentFrames{0},sentBytes{0},totalBytes{0},droppedFrames{0};
+ std::atomic<bool> skipSyncCompletion{false};
+ std::atomic<int> error{0};
+ DatagramSender(SOCKET s,const sockaddr_in &to,size_t bytes,size_t packets,size_t sendWindow,bool uso,bool iocp,bool registered,bool fec,bool singleBuffer,bool connectedSocket,bool skipCompletion):socket(s),windowSize(sendWindow),segmented(uso),useIocp(iocp),useRio(registered),useFec(fec),contiguous(singleBuffer),connected(connectedSocket),skipCompletionEnabled(skipCompletion),destination(to) {
+  pending.bytes.resize(bytes);pending.packets.resize(packets);worker=std::thread(&DatagramSender::Run,this);
+ }
+ void Publish(std::vector<uint8_t>&bytes,std::vector<pyrowave_packet>&packets,size_t count,uint32_t id,uint64_t utc,Clock::time_point started){
+  std::lock_guard<std::mutex> lock(mutex);if(available)droppedFrames.fetch_add(1);
+  bytes.swap(pending.bytes);packets.swap(pending.packets);pending.count=count;pending.id=id;pending.utc=utc;pending.started=started;available=true;ready.notify_one();
+ }
+ void Samples(std::vector<double>&send,std::vector<double>&total){std::lock_guard<std::mutex> lock(metricsMutex);send.swap(sendSamples);total.swap(totalSamples);}
+ void Stop(){ {std::lock_guard<std::mutex> lock(mutex);stopping=true;}ready.notify_one();if(worker.joinable())worker.join(); }
+ ~DatagramSender(){Stop();}
+};
+
+bool check(pyrowave_result result, const char *operation)
+{
+	if (result == PYROWAVE_SUCCESS)
+		return true;
+	std::fprintf(stderr, "%s failed: PyroWave result %d\n", operation, int(result));
+	return false;
+}
+
+double percentile(std::vector<double> values, double p)
+{
+	if (values.empty())
+		return 0.0;
+	std::sort(values.begin(), values.end());
+	const auto index = size_t(std::ceil(p * double(values.size()))) - 1;
+	return values[std::min(index, values.size() - 1)];
+}
+
+void update_patch(ID3D11DeviceContext *context, ID3D11Texture2D *texture,
+				  std::vector<uint8_t> &patch, int x, uint64_t frame)
+{
+	constexpr int patchWidth = 192;
+	constexpr int patchHeight = 240;
+	for (int y = 0; y < patchHeight; ++y)
+	{
+		for (int px = 0; px < patchWidth; ++px)
+		{
+			const size_t offset = (size_t(y) * patchWidth + px) * 4;
+			const bool border = px < 8 || y < 8 || px >= patchWidth - 8 || y >= patchHeight - 8;
+			const bool checker = ((px / 24) ^ (y / 24) ^ int(frame / 16)) & 1;
+			patch[offset + 0] = border ? 0 : (checker ? 32 : 240);
+			patch[offset + 1] = border ? 255 : (checker ? 240 : 32);
+			patch[offset + 2] = border ? 255 : 48;
+			patch[offset + 3] = 255;
+		}
+	}
+	D3D11_BOX box = {};
+	box.left = UINT(x);
+	box.top = 600;
+	box.front = 0;
+	box.right = UINT(x + patchWidth);
+	box.bottom = 600 + patchHeight;
+	box.back = 1;
+	context->UpdateSubresource(texture, 0, &box, patch.data(), patchWidth * 4, 0);
+}
+}
+
+int wmain(int argc, wchar_t **argv)
+{
+	SetProcessDPIAware();
+	std::wstring captureDisplay;
+	std::wstring sendHost;
+	unsigned short sendPort = 55165;
+	int measureSeconds = MeasureSeconds;
+	int Fps = DefaultFps;
+	int CaptureFps = DefaultFps;
+ int captureOverride = 0;double linkBudgetMbps=0;bool legacyCapturePacing=true;
+	double captureRefreshHz = 0;
+	size_t maxFrameBytes = DefaultMaxFrameBytes;
+	size_t packetBoundary = PacketBytes;
+	bool chroma444 = false;
+	size_t sendWindow = 64;
+	bool udpSegmented = false;
+	int sendBufferBytes = -1;
+	bool sendIocp = false;
+	bool sendRio = false;
+	bool fec = false;
+	bool sendContiguous = false;
+	bool sendConnected = false;
+ bool skipSyncCompletion=true;
+	bool captureRequested = false;
+	bool sendRequested = false;
+	std::wstring secretFile;
+	for (int i = 1; i < argc; ++i)
+	{
+		if (std::wstring(argv[i]) == L"--capture-display" && i + 1 < argc) { captureRequested = true; captureDisplay = argv[++i]; }
+		else if (std::wstring(argv[i]) == L"--send-host" && i + 1 < argc) { sendRequested = true; sendHost = argv[++i]; }
+		else if (std::wstring(argv[i]) == L"--width" && i+1<argc) Width=_wtoi(argv[++i]);
+		else if (std::wstring(argv[i]) == L"--height" && i+1<argc) Height=_wtoi(argv[++i]);
+		else if (std::wstring(argv[i]) == L"--secret-file" && i+1<argc) secretFile=argv[++i];
+		else if (std::wstring(argv[i]) == L"--port" && i + 1 < argc) sendPort = (unsigned short)_wtoi(argv[++i]);
+		else if (std::wstring(argv[i]) == L"--target-fps" && i + 1 < argc)
+		{
+			Fps = _wtoi(argv[++i]);
+			if (Fps != 60 && Fps != 120 && Fps != 165 && Fps != 240) return 1;
+		}
+		else if (std::wstring(argv[i]) == L"--capture-fps" && i+1<argc) {
+   captureOverride=_wtoi(argv[++i]);if(captureOverride<1||captureOverride>240)return 1;
+  }
+  else if (std::wstring(argv[i]) == L"--link-budget-mbps" && i+1<argc) {
+   linkBudgetMbps=_wtof(argv[++i]);if(!std::isfinite(linkBudgetMbps)||linkBudgetMbps<1||linkBudgetMbps>100000)return 1;
+  }
+  else if (std::wstring(argv[i]) == L"--capture-fixed-phase")legacyCapturePacing=true;
+  else if (std::wstring(argv[i]) == L"--capture-catch-up")legacyCapturePacing=false;
+  else if (std::wstring(argv[i]) == L"--measure-seconds" && i + 1 < argc)
+		{
+			const int requested = _wtoi(argv[++i]);
+			measureSeconds = requested == 0 ? 0 : std::max(1, std::min(3600, requested));
+		}
+		else if (std::wstring(argv[i]) == L"--max-frame-bytes" && i + 1 < argc) maxFrameBytes = size_t(std::max(65536, std::min(4*1048576, _wtoi(argv[++i]))));
+		else if (std::wstring(argv[i]) == L"--packet-bytes" && i + 1 < argc) packetBoundary = size_t(std::max(1380, std::min(32768, _wtoi(argv[++i]))));
+		else if (std::wstring(argv[i]) == L"--chroma444") chroma444 = true;
+		else if (std::wstring(argv[i]) == L"--send-window" && i+1<argc) sendWindow=size_t(std::max(16,std::min(1024,_wtoi(argv[++i]))));
+		else if (std::wstring(argv[i]) == L"--udp-segmented") udpSegmented=true;
+		else if (std::wstring(argv[i]) == L"--send-buffer-bytes" && i+1<argc) sendBufferBytes=std::max(0,std::min(4*1024*1024,_wtoi(argv[++i])));
+		else if (std::wstring(argv[i]) == L"--send-iocp") sendIocp=true;
+		else if (std::wstring(argv[i]) == L"--send-rio") sendRio=true;
+		else if (std::wstring(argv[i]) == L"--fec") fec=true;
+		else if (std::wstring(argv[i]) == L"--send-contiguous") sendContiguous=true;
+		else if (std::wstring(argv[i]) == L"--send-connected") sendConnected=true;
+  else if (std::wstring(argv[i]) == L"--iocp-full-completions") skipSyncCompletion=false;
+		else { std::fprintf(stderr, "invalid arguments\n"); return 1; }
+	}
+	if(Width<640||Width>3840||Height<480||Height>2160||Width%2||Height%2||secretFile.empty()||!captureRequested||!sendRequested||sendRio)return 1;
+	try{videoCrypto.Load(secretFile.c_str());}catch(const std::exception&e){fprintf(stderr,"%s\n",e.what());return 1;}
+	sendContiguous=true;
+	if ((captureRequested || sendRequested) && (captureDisplay.empty() || sendHost.empty()))
+	{
+		std::fprintf(stderr, "desktop capture and UDP send must both be configured; refusing to run the synthetic benchmark\n");
+		return 1;
+	}
+	CaptureFps = captureOverride>0?std::min(Fps,captureOverride):Fps;
+	SOCKET udp = INVALID_SOCKET;
+	sockaddr_in remote = {};
+	if (!sendHost.empty())
+	{
+		WSADATA wsa = {}; if (WSAStartup(MAKEWORD(2, 2), &wsa) != 0) return 1;
+		if(sendRio&&(sendIocp||udpSegmented)){std::fprintf(stderr,"RIO must be tested independently of IOCP/segmentation\n");return 1;}
+		if(sendContiguous&&sendRio){std::fprintf(stderr,"contiguous slots must be tested independently of RIO/segmentation\n");return 1;}
+		if(sendConnected&&sendRio){std::fprintf(stderr,"connected sends must be tested independently of RIO/segmentation\n");return 1;}
+		udp = sendRio?WSASocketW(AF_INET,SOCK_DGRAM,IPPROTO_UDP,nullptr,0,WSA_FLAG_REGISTERED_IO):socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+		remote.sin_family = AF_INET; remote.sin_port = htons(sendPort);
+		if (udp == INVALID_SOCKET || InetPtonW(AF_INET, sendHost.c_str(), &remote.sin_addr) != 1) { std::fprintf(stderr, "bad UDP destination\n"); return 1; }
+		if(sendConnected&&connect(udp,reinterpret_cast<sockaddr*>(&remote),sizeof(remote))!=0){std::fprintf(stderr,"UDP connect failed: %d\n",WSAGetLastError());return 1;}
+		if(udpSegmented && WSASetUdpSendMessageSize(udp,DWORD(MaxDatagramBytes))!=0){std::fprintf(stderr,"UDP segmentation unavailable: %d\n",WSAGetLastError());return 1;}
+		if(sendBufferBytes>=0 && setsockopt(udp,SOL_SOCKET,SO_SNDBUF,reinterpret_cast<const char*>(&sendBufferBytes),sizeof(sendBufferBytes))!=0){std::fprintf(stderr,"UDP send buffer unavailable: %d\n",WSAGetLastError());return 1;}
+		int optionBytes=sizeof(sendBufferBytes);getsockopt(udp,SOL_SOCKET,SO_SNDBUF,reinterpret_cast<char*>(&sendBufferBytes),&optionBytes);
+		std::fprintf(stderr,"UDP send buffer: %d bytes; segmentation: %s; window: %llu\n",sendBufferBytes,udpSegmented?"enabled":"disabled",(unsigned long long)sendWindow);
+	}
+
+	ComPtr<IDXGIFactory1> factory;
+	if (FAILED(CreateDXGIFactory1(IID_PPV_ARGS(&factory))))
+		return 2;
+	ComPtr<IDXGIAdapter1> adapter;
+	DXGI_ADAPTER_DESC1 adapterDesc = {};
+	for(UINT index=0;;++index)
+	{
+		ComPtr<IDXGIAdapter1> candidate;
+		if(factory->EnumAdapters1(index,&candidate)==DXGI_ERROR_NOT_FOUND)break;
+		DXGI_ADAPTER_DESC1 desc{};candidate->GetDesc1(&desc);
+		for(UINT o=0;;++o)
+		{
+			ComPtr<IDXGIOutput> output;
+			if(candidate->EnumOutputs(o,&output)==DXGI_ERROR_NOT_FOUND)break;
+			DXGI_OUTPUT_DESC od{};
+			if(SUCCEEDED(output->GetDesc(&od))&&captureDisplay==od.DeviceName){adapter=candidate;adapterDesc=desc;break;}
+		}
+		if(adapter)break;
+	}
+	if (!adapter)
+	{
+		std::fprintf(stderr, "The selected desktop output has no DXGI capture adapter\n");
+		return 3;
+	}
+
+	ComPtr<IDXGIOutput1> captureOutput;
+	std::wstring captureDisplayText = L"synthetic_texture";
+	if (!captureDisplay.empty())
+	{
+		for (UINT outputIndex = 0; ; ++outputIndex)
+		{
+			ComPtr<IDXGIOutput> candidate;
+			if (adapter->EnumOutputs(outputIndex, &candidate) == DXGI_ERROR_NOT_FOUND)
+				break;
+			DXGI_OUTPUT_DESC outputDesc = {};
+			if (SUCCEEDED(candidate->GetDesc(&outputDesc)) && captureDisplay == outputDesc.DeviceName)
+			{
+				if (FAILED(candidate.As(&captureOutput)))
+					return 3;
+				captureDisplayText = outputDesc.DeviceName;
+				break;
+			}
+		}
+		if (!captureOutput)
+		{
+			std::fwprintf(stderr, L"DXGI output %ls is not attached to the selected capture adapter\n", captureDisplay.c_str());
+			return 3;
+		}
+	}
+
+	ComPtr<ID3D11Device> d3dDevice;
+	ComPtr<ID3D11DeviceContext> d3dContext;
+	ComPtr<ID3D11Device5> d3dDevice5;
+	ComPtr<ID3D11DeviceContext4> d3dContext4;
+	const HRESULT d3dResult = D3D11CreateDevice(adapter.Get(), D3D_DRIVER_TYPE_UNKNOWN, nullptr,
+											D3D11_CREATE_DEVICE_BGRA_SUPPORT, nullptr, 0, D3D11_SDK_VERSION,
+											&d3dDevice, nullptr, &d3dContext);
+	if (FAILED(d3dResult) || FAILED(d3dDevice.As(&d3dDevice5)) || FAILED(d3dContext.As(&d3dContext4)))
+	{
+		std::fprintf(stderr, "Failed to create D3D11.4 device/context: 0x%08lx\n", (unsigned long)d3dResult);
+		return 4;
+	}
+	ComPtr<IDXGIOutputDuplication> duplication;
+	if (captureOutput)
+	{
+		if (FAILED(captureOutput->DuplicateOutput(d3dDevice.Get(), &duplication)))
+		{
+			std::fwprintf(stderr, L"Desktop Duplication could not open %ls\n", captureDisplay.c_str());
+			return 4;
+		}
+		DXGI_OUTDUPL_DESC dupDesc = {};
+		duplication->GetDesc(&dupDesc);
+		if (dupDesc.ModeDesc.Width != Width || dupDesc.ModeDesc.Height != Height ||
+		    dupDesc.ModeDesc.RefreshRate.Denominator == 0 ||
+		    dupDesc.ModeDesc.RefreshRate.Numerator == 0)
+		{
+			std::fprintf(stderr, "Capture output does not match the selected mode\n");
+			return 4;
+		}
+		captureRefreshHz = double(dupDesc.ModeDesc.RefreshRate.Numerator) / dupDesc.ModeDesc.RefreshRate.Denominator;
+		CaptureFps = std::max(1,std::min(CaptureFps,int(std::round(captureRefreshHz))));
+		std::fprintf(stderr, "Desktop capture mode: %dx%d at %.3f Hz; requested ceiling: %d FPS\n", Width, Height, captureRefreshHz, Fps);
+	}
+
+	pyrowave_device device = nullptr;
+	if (!check(pyrowave_create_device_by_compat(0, 0, nullptr, nullptr,
+						reinterpret_cast<const pyrowave_luid *>(&adapterDesc.AdapterLuid), &device), "create matching Vulkan device"))
+		return 5;
+
+	D3D11_TEXTURE2D_DESC textureDesc = {};
+	textureDesc.Width = Width;
+	textureDesc.Height = Height;
+	textureDesc.MipLevels = 1;
+	textureDesc.ArraySize = 1;
+	textureDesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
+	textureDesc.SampleDesc.Count = 1;
+	textureDesc.Usage = D3D11_USAGE_DEFAULT;
+	textureDesc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
+	textureDesc.MiscFlags = D3D11_RESOURCE_MISC_SHARED_NTHANDLE | D3D11_RESOURCE_MISC_SHARED;
+	ComPtr<ID3D11Texture2D> texture;
+	DesktopPointer desktopPointer;
+	if (FAILED(d3dDevice->CreateTexture2D(&textureDesc, nullptr, &texture)))
+	{
+		std::fprintf(stderr, "Failed to create shareable BGRA texture\n");
+		return 6;
+	}
+	ComPtr<IDXGIResource1> textureResource;
+	if (FAILED(texture.As(&textureResource)))
+		return 7;
+	HANDLE textureHandle = nullptr;
+	if (FAILED(textureResource->CreateSharedHandle(nullptr, GENERIC_ALL, nullptr, &textureHandle)))
+	{
+		std::fprintf(stderr, "D3D11 BGRA shared texture handle is unavailable\n");
+		return 8;
+	}
+
+	ComPtr<ID3D11Fence> fence;
+	HANDLE fenceHandle = nullptr;
+	if (FAILED(d3dDevice5->CreateFence(0, D3D11_FENCE_FLAG_SHARED, IID_PPV_ARGS(&fence))) ||
+	    FAILED(fence->CreateSharedHandle(nullptr, GENERIC_ALL, nullptr, &fenceHandle)))
+	{
+		std::fprintf(stderr, "D3D11 shared fence is unavailable\n");
+		return 9;
+	}
+
+	pyrowave_image image = nullptr;
+	VkImageCreateInfo vkImageInfo = { VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO };
+	vkImageInfo.imageType = VK_IMAGE_TYPE_2D;
+	vkImageInfo.extent = { uint32_t(Width), uint32_t(Height), 1 };
+	vkImageInfo.format = VK_FORMAT_B8G8R8A8_UNORM;
+	vkImageInfo.mipLevels = 1;
+	vkImageInfo.arrayLayers = 1;
+	vkImageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+	vkImageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+	vkImageInfo.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+	vkImageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+	pyrowave_image_create_info imageInfo = {};
+	imageInfo.device = device;
+	imageInfo.handle_type = VK_EXTERNAL_MEMORY_HANDLE_TYPE_D3D11_TEXTURE_BIT;
+	imageInfo.external_handle = reinterpret_cast<pyrowave_os_handle>(textureHandle);
+	imageInfo.image_create_info = &vkImageInfo;
+	if (!check(pyrowave_image_create(&imageInfo, &image), "import D3D11 texture into Vulkan"))
+		return 10;
+
+	pyrowave_sync_object sync = nullptr;
+	pyrowave_sync_object_create_info syncInfo = {};
+	syncInfo.device = device;
+	syncInfo.external_handle = reinterpret_cast<pyrowave_os_handle>(fenceHandle);
+	syncInfo.handle_type = VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_D3D11_FENCE_BIT;
+	syncInfo.semaphore_type = VK_SEMAPHORE_TYPE_TIMELINE;
+	if (!check(pyrowave_sync_object_create(&syncInfo, &sync), "import D3D11 timeline fence"))
+		return 11;
+
+	pyrowave_encoder_create_info encoderInfo = {};
+	encoderInfo.device = device;
+	encoderInfo.width = Width;
+	encoderInfo.height = Height;
+	encoderInfo.chroma = chroma444 ? PYROWAVE_CHROMA_SUBSAMPLING_444 : PYROWAVE_CHROMA_SUBSAMPLING_420;
+	pyrowave_encoder encoder = nullptr;
+	if (!check(pyrowave_encoder_create(&encoderInfo, &encoder), "create 2K encoder"))
+		return 12;
+	pyrowave_image_view inputView = {};
+	if (!check(pyrowave_image_get_image_view(image, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_USAGE_SAMPLED_BIT, &inputView), "get texture view"))
+		return 13;
+	pyrowave_scaled_encode_info scaleInfo = {};
+	scaleInfo.view = inputView;
+	scaleInfo.input_color_space = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
+	scaleInfo.output_color_space = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
+	scaleInfo.intermediate_plane_format = VK_FORMAT_R8_UNORM;
+	scaleInfo.ycbcr_chroma_midpoint = 128.0f / 255.0f;
+	pyrowave_gpu_external_reference externalImage = { image, VK_QUEUE_FAMILY_EXTERNAL };
+	pyrowave_gpu_sync_operation acquire = {};
+	acquire.images = &externalImage;
+	acquire.num_images = 1;
+	acquire.sync.semaphore = pyrowave_sync_object_get_semaphore(sync);
+	pyrowave_gpu_sync_operation release = {};
+	release.sync.semaphore = pyrowave_sync_object_get_semaphore(sync);
+
+	std::vector<uint8_t> initial(size_t(Width) * Height * 4);
+	const uint8_t bars[8][3] = {{24,24,24},{24,24,235},{24,235,24},{24,235,235},{235,24,24},{235,24,235},{235,235,24},{235,235,235}};
+	for (int y = 0; y < Height; ++y)
+	{
+		for (int x = 0; x < Width; ++x)
+		{
+			const int bar = std::min(7, x * 8 / Width);
+			const int shade = ((y / 240) & 1) ? 0 : -16;
+			const size_t offset = (size_t(y) * Width + x) * 4;
+			initial[offset + 0] = uint8_t(std::max(0, std::min(255, int(bars[bar][0]) + shade)));
+			initial[offset + 1] = uint8_t(std::max(0, std::min(255, int(bars[bar][1]) + shade)));
+			initial[offset + 2] = uint8_t(std::max(0, std::min(255, int(bars[bar][2]) + shade)));
+			initial[offset + 3] = 255;
+		}
+	}
+	d3dContext->UpdateSubresource(texture.Get(), 0, nullptr, initial.data(), Width * 4, 0);
+	std::vector<uint8_t> patch(192 * 240 * 4);
+	std::vector<uint8_t> bitstream(maxFrameBytes + 65536);
+	std::vector<pyrowave_packet> packets(maxFrameBytes / PacketBytes + 2048);
+	std::unique_ptr<DatagramSender> networkSender;
+	if (udp != INVALID_SOCKET) networkSender.reset(new DatagramSender(udp, remote, bitstream.size(), packets.size(),sendWindow,udpSegmented,sendIocp,sendRio,fec,sendContiguous,sendConnected,skipSyncCompletion));
+	pyrowave_rate_control rate = { maxFrameBytes };
+ const double wireBytesPerFrame=linkBudgetMbps>0?linkBudgetMbps*1000000.0/8.0/CaptureFps:0;
+ double lastEstimatedWireMbps=0;
+	uint64_t timeline = 0;
+	std::vector<double> captureMs, encodeMs, packetizeMs, totalMs;
+	const auto start = Clock::now();
+	const auto measureStart = start + std::chrono::seconds(measureSeconds > 0 ? WarmupSeconds : 0);
+	const auto end = measureSeconds > 0 ? start + std::chrono::seconds(WarmupSeconds + measureSeconds) : Clock::time_point::max();
+	uint64_t packetBytes = 0;
+	uint64_t udpBytes = 0;
+	uint64_t measuredFrames = 0;
+	uint64_t captureTimeouts = 0;
+	uint64_t liveCaptureFrames = 0, liveCaptureTimeouts = 0, liveUdpFrames = 0, liveUdpBytes = 0;
+	std::vector<double> liveCaptureMs, liveEncodeMs, liveFrameToUdpMs;
+	std::vector<double> livePacketizeMs, liveSendMs, liveSourceAgeMs,liveGpuReadbackMs,liveCpuPacketizeMs,livePacingWaitMs;
+ uint64_t liveAccumulatedSourceFrames=0;
+	auto liveReportStart = start;
+ wchar_t runtimeBuffer[32768]{};DWORD runtimeLength=GetEnvironmentVariableW(L"PYROSCREEN_RUNTIME",runtimeBuffer,32768);
+ std::wstring liveStatsPath;
+ if(runtimeLength&&runtimeLength<32768)liveStatsPath=std::wstring(runtimeBuffer)+L"\\sender-live.json";
+ else{wchar_t legacy[MAX_PATH]{};DWORD length=GetEnvironmentVariableW(L"LOCALAPPDATA",legacy,MAX_PATH);liveStatsPath=length&&length<MAX_PATH?std::wstring(legacy)+L"\\PyroScreen\\runtime\\sender-live.json":L"sender-live.json";}
+	PyrowaveLiveStatsWriter liveStatsWriter(liveStatsPath);
+	auto writeLiveStats = [&]() {
+		const auto now = Clock::now();
+		const double interval = std::chrono::duration<double>(now - liveReportStart).count();
+		if (interval < 0.95)
+			return;
+		if(networkSender){liveUdpFrames=networkSender->sentFrames.exchange(0);liveUdpBytes=networkSender->sentBytes.exchange(0);networkSender->Samples(liveSendMs,liveFrameToUdpMs);}
+		char json[4096];
+		int length = std::snprintf(json, sizeof(json),
+			"{\"pid\":%lu,\"elapsed_s\":%.3f,\"interval_s\":%.3f,\"capture_fps\":%.3f,\"capture_timeouts_per_s\":%.3f,\"udp_send_fps\":%.3f,\"udp_mbps\":%.3f,\"capture_p95_ms\":%.3f,\"encode_p50_ms\":%.3f,\"encode_p95_ms\":%.3f,\"frame_to_udp_p95_ms\":%.3f,\"max_frame_bytes\":%llu,\"packet_boundary\":%llu,\"packetize_p95_ms\":%.3f,\"udp_send_p95_ms\":%.3f,\"source_age_p95_ms\":%.3f,\"send_window\":%llu,\"network_queue_dropped_frames\":%llu,\"send_buffer_bytes\":%d,\"udp_segmented\":%s}\n",
+			GetCurrentProcessId(), std::chrono::duration<double>(now - start).count(), interval,
+			double(liveCaptureFrames) / interval, double(liveCaptureTimeouts) / interval,
+			double(liveUdpFrames) / interval, double(liveUdpBytes) * 8.0 / interval / 1000000.0,
+			percentile(liveCaptureMs, 0.95), percentile(liveEncodeMs, 0.50), percentile(liveEncodeMs, 0.95),
+			percentile(liveFrameToUdpMs, 0.95), (unsigned long long)maxFrameBytes,
+			(unsigned long long)packetBoundary, percentile(livePacketizeMs, 0.95), percentile(liveSendMs, 0.95), percentile(liveSourceAgeMs, 0.95),
+			(unsigned long long)sendWindow, (unsigned long long)(networkSender ? networkSender->droppedFrames.load() : 0),sendBufferBytes,udpSegmented?"true":"false");
+		if(length>1 && length<int(sizeof(json))){
+			length-=2;
+			length+=std::snprintf(json+length,sizeof(json)-length,",\"send_transport\":\"%s\",\"fec\":%s,\"send_contiguous\":%s,\"send_connected\":%s,\"target_fps\":%d,\"capture_refresh_hz\":%.3f,\"capture_limit_fps\":%d,\"capture_rate_limited\":%s}\n",sendRio?"rio":sendIocp?"iocp":"events",fec?"true":"false",sendContiguous?"true":"false",sendConnected?"true":"false",Fps,captureRefreshHz,CaptureFps,duplication?"true":"false");
+		}
+  if(length>1&&length<int(sizeof(json))){
+   length-=2;
+   length+=std::snprintf(json+length,sizeof(json)-length,",\"gpu_readback_p95_ms\":%.3f,\"cpu_packetize_p95_ms\":%.3f,\"capture_pacing_wait_p95_ms\":%.3f,\"source_accumulated_frames\":%llu,\"requested_frame_bytes\":%llu,\"effective_frame_bytes\":%llu,\"link_budget_mbps\":%.3f,\"estimated_wire_mbps\":%.3f,\"capture_pacing_mode\":\"%s\"}\n",percentile(liveGpuReadbackMs,0.95),percentile(liveCpuPacketizeMs,0.95),percentile(livePacingWaitMs,0.95),(unsigned long long)liveAccumulatedSourceFrames,(unsigned long long)maxFrameBytes,(unsigned long long)rate.maximum_bitstream_size,linkBudgetMbps,lastEstimatedWireMbps,legacyCapturePacing?"fixed_phase":"bounded_catch_up");
+  }
+  if(length>1&&length<int(sizeof(json))){
+   length-=2;
+   length+=std::snprintf(json+length,sizeof(json)-length,",\"iocp_skip_sync_completion\":%s}\n",networkSender&&networkSender->skipSyncCompletion.load()?"true":"false");
+  }
+		if(length>0&&length<int(sizeof(json)))liveStatsWriter.Publish(json,size_t(length));
+		liveCaptureFrames = liveCaptureTimeouts = liveUdpFrames = liveUdpBytes = 0;
+		liveCaptureMs.clear(); liveEncodeMs.clear(); liveFrameToUdpMs.clear();
+		livePacketizeMs.clear();liveGpuReadbackMs.clear();liveCpuPacketizeMs.clear();livePacingWaitMs.clear();liveAccumulatedSourceFrames=0; liveSendMs.clear(); liveSourceAgeMs.clear();
+		liveReportStart = now;
+	};
+	const uint64_t totalFrames = measureSeconds > 0 ? uint64_t(Fps) * uint64_t(WarmupSeconds + measureSeconds) : UINT64_MAX;
+	// DWM may compose this virtual output at another monitor's refresh rate.
+	// Lower profiles must limit real capture/encode work, not just set a mode.
+	// A fixed phase and a high-resolution wait keep timer error from accumulating;
+	// AcquireNextFrame still waits for new content and never repeats a frame.
+	HANDLE captureTimer = nullptr;
+	const bool limitCapture = bool(duplication);
+	if (limitCapture)
+	{
+		captureTimer = CreateWaitableTimerExW(nullptr, nullptr, CREATE_WAITABLE_TIMER_HIGH_RESOLUTION, TIMER_ALL_ACCESS);
+		if (!captureTimer) captureTimer = CreateWaitableTimerW(nullptr, FALSE, nullptr);
+		if (!captureTimer) { std::fprintf(stderr, "capture pacing timer unavailable: %lu\n", GetLastError()); return 23; }
+	}
+	const auto capturePeriod = std::chrono::nanoseconds(1000000000ll / CaptureFps);
+	auto nextCapture = Clock::now();
+	for (uint64_t frame = 0; frame < totalFrames && (!duplication || Clock::now() < end); ++frame)
+	{
+		writeLiveStats();
+		if(networkSender&&networkSender->error.load()){std::fprintf(stderr,"UDP send failed: %d\n",networkSender->error.load());return 22;}
+		const auto pacingBegin=Clock::now();
+  if (limitCapture && nextCapture > Clock::now())
+		{
+			LARGE_INTEGER due{};
+			due.QuadPart = -std::max<int64_t>(1, std::chrono::duration_cast<std::chrono::nanoseconds>(nextCapture - Clock::now()).count() / 100);
+			if (!SetWaitableTimer(captureTimer, &due, 0, nullptr, nullptr, FALSE) || WaitForSingleObject(captureTimer, INFINITE) != WAIT_OBJECT_0)
+			{ std::fprintf(stderr, "capture pacing wait failed: %lu\n", GetLastError()); return 23; }
+		}
+		livePacingWaitMs.push_back(std::chrono::duration<double,std::milli>(Clock::now()-pacingBegin).count());
+  const auto frameStart = Clock::now();
+		const auto captureStart = Clock::now();
+		auto copyStart = captureStart;
+		auto sourceStart = captureStart;
+		uint64_t captureUtcMs = UtcMs();
+		if (duplication)
+		{
+			DXGI_OUTDUPL_FRAME_INFO captureInfo = {};
+			ComPtr<IDXGIResource> desktopResource;
+			// Wake on the actual desktop update. Zero-timeout polling at a second
+			// 165 Hz phase can miss alternating frames after coarse timer wakeups.
+			const HRESULT acquireResult = duplication->AcquireNextFrame(20, &captureInfo, &desktopResource);
+			if (acquireResult == DXGI_ERROR_WAIT_TIMEOUT)
+			{
+				++captureTimeouts;
+				++liveCaptureTimeouts;
+				continue;
+			}
+			if (FAILED(acquireResult))
+			{
+				std::fprintf(stderr, "Desktop Duplication AcquireNextFrame failed: 0x%08lx\n", (unsigned long)acquireResult);
+				return 20;
+			}
+			copyStart = Clock::now();
+			if (limitCapture)
+			{
+				if(legacyCapturePacing){do { nextCapture += capturePeriod; } while (nextCapture <= copyStart);}
+    else{
+     // Retain at most one deadline of catch-up credit. Do not skip an
+     // additional whole interval solely because capture/encode woke late.
+     nextCapture+=capturePeriod;
+     if(copyStart-nextCapture>capturePeriod)nextCapture=copyStart;
+    }
+    liveAccumulatedSourceFrames+=std::max<UINT>(1,captureInfo.AccumulatedFrames);
+			}
+			// Timestamp the actual source desktop update, before capture/encode.
+			// LastPresentTime uses the local QPC clock, not the laptop UTC clock.
+			LARGE_INTEGER sourceUpdated{};
+			sourceUpdated.QuadPart=std::max(captureInfo.LastPresentTime.QuadPart,captureInfo.LastMouseUpdateTime.QuadPart);
+			if (sourceUpdated.QuadPart > 0)
+			{
+				LARGE_INTEGER qpcNow{}, qpcFrequency{};
+				QueryPerformanceCounter(&qpcNow); QueryPerformanceFrequency(&qpcFrequency);
+				const double ageMs = std::max(0.0, double(qpcNow.QuadPart - sourceUpdated.QuadPart) * 1000.0 / qpcFrequency.QuadPart);
+				captureUtcMs = UtcMs() - uint64_t(ageMs);
+				sourceStart = Clock::now() - std::chrono::nanoseconds(int64_t(ageMs * 1000000.0));
+				liveSourceAgeMs.push_back(ageMs);
+			}
+			ComPtr<ID3D11Texture2D> desktopTexture;
+			if (FAILED(desktopResource.As(&desktopTexture)))
+				return 20;
+			d3dContext->CopyResource(texture.Get(), desktopTexture.Get());
+			desktopPointer.Draw(d3dDevice.Get(),d3dContext.Get(),duplication.Get(),texture.Get(),captureInfo,Width,Height);
+			duplication->ReleaseFrame();
+		}
+		else
+			update_patch(d3dContext.Get(), texture.Get(), patch, int(uint64_t(frame) * 19 % (Width - 192)), uint64_t(frame));
+		acquire.sync.value = ++timeline;
+		d3dContext4->Signal(fence.Get(), timeline);
+		const auto captureEnd = Clock::now();
+		++liveCaptureFrames;
+		liveCaptureMs.push_back(std::chrono::duration<double, std::milli>(captureEnd - copyStart).count());
+
+		const auto encodeStart = Clock::now();
+		release.sync.value = ++timeline;
+		if (!check(pyrowave_encoder_encode_gpu_scaled_synchronous(encoder, &acquire, &release, &scaleInfo, &rate), "GPU encode"))
+			return 14;
+		const auto encodeEnd = Clock::now();
+		liveEncodeMs.push_back(std::chrono::duration<double, std::milli>(encodeEnd - encodeStart).count());
+
+		const auto packetizeStart = Clock::now();
+  const void* mappedBitstream=nullptr;const void* mappedMetadata=nullptr;size_t mappedSize=0,metadataSize=0;
+  if(!check(pyrowave_encoder_get_mapped_raw_bitstream(encoder,&mappedBitstream,&mappedSize,&mappedMetadata,&metadataSize),"wait for encoded GPU frame"))return 15;
+  const auto gpuReadbackEnd=Clock::now();
+  liveGpuReadbackMs.push_back(std::chrono::duration<double,std::milli>(gpuReadbackEnd-packetizeStart).count());
+		size_t packetCount = 0;
+		if (!check(pyrowave_encoder_compute_num_packets(encoder, packetBoundary, &packetCount), "compute packet count"))
+			return 15;
+		if (packetCount > packets.size())
+		{
+			std::fprintf(stderr, "packet count %zu exceeded provisioned capacity %zu\n", packetCount, packets.size());
+			return 16;
+		}
+		if (!check(pyrowave_encoder_packetize(encoder, packets.data(), packetBoundary, &packetCount,
+		                                     bitstream.data(), bitstream.size()), "packetize GPU frame"))
+			return 17;
+		uint64_t frameBytes = 0;
+		for (size_t i = 0; i < packetCount; ++i)
+			frameBytes += packets[i].size;
+		const auto packetizeEnd = Clock::now();
+		livePacketizeMs.push_back(std::chrono::duration<double, std::milli>(packetizeEnd - packetizeStart).count());
+  liveCpuPacketizeMs.push_back(std::chrono::duration<double,std::milli>(packetizeEnd-gpuReadbackEnd).count());
+  // Include encryption, IPv4/UDP and Ethernet framing/IFG in the link budget.
+  // Quality changes to fit the link; the capture FPS target never changes here.
+  uint64_t estimatedWireBytes=0;
+  for(size_t i=0;i<packetCount;++i){
+   const uint64_t fragments=(packets[i].size+FragmentPayloadBytes-1)/FragmentPayloadBytes;
+   estimatedWireBytes+=packets[i].size+fragments*(sizeof(DatagramHeader)+32+28+38);
+   if(fec)estimatedWireBytes+=FragmentPayloadBytes+sizeof(DatagramHeader)+32+28+38;
+  }
+  lastEstimatedWireMbps=double(estimatedWireBytes)*8.0*CaptureFps/1000000.0;
+  if(wireBytesPerFrame>0){
+   if(double(estimatedWireBytes)>wireBytesPerFrame*1.01)
+    rate.maximum_bitstream_size=std::max<size_t>(65536,size_t(double(rate.maximum_bitstream_size)*wireBytesPerFrame/double(estimatedWireBytes)*0.99))&~size_t(3);
+   else if(double(estimatedWireBytes)<wireBytesPerFrame*0.98&&rate.maximum_bitstream_size<maxFrameBytes)
+    rate.maximum_bitstream_size=std::min(maxFrameBytes,rate.maximum_bitstream_size+std::max<size_t>(256,rate.maximum_bitstream_size/200))&~size_t(3);
+  }
+		if (FAILED(d3dContext4->Wait(fence.Get(), timeline)))
+		{
+			std::fprintf(stderr, "D3D11 wait for Vulkan encode failed\n");
+			return 18;
+		}
+		const auto sendStart = Clock::now();
+		if (udp != INVALID_SOCKET && frameStart >= measureStart && frameStart < end)
+		{
+			if (packetCount > UINT16_MAX) { std::fprintf(stderr, "packet count overflow\n"); return 21; }
+			networkSender->Publish(bitstream, packets, packetCount, uint32_t(frame), captureUtcMs, sourceStart);
+		}
+		if(!networkSender)liveFrameToUdpMs.push_back(std::chrono::duration<double, std::milli>(Clock::now() - frameStart).count());
+
+		if (measureSeconds > 0 && frameStart >= measureStart && frameStart < end)
+		{
+			captureMs.push_back(std::chrono::duration<double, std::milli>(captureEnd - copyStart).count());
+			encodeMs.push_back(std::chrono::duration<double, std::milli>(encodeEnd - encodeStart).count());
+			packetizeMs.push_back(std::chrono::duration<double, std::milli>(packetizeEnd - packetizeStart).count());
+			totalMs.push_back(std::chrono::duration<double, std::milli>(Clock::now() - sourceStart).count());
+			packetBytes += frameBytes;
+			++measuredFrames;
+		}
+		const auto target = start + std::chrono::nanoseconds((int64_t(frame) + 1) * 1000000000ll / Fps);
+		if (!duplication && target > Clock::now())
+			std::this_thread::sleep_until(target);
+	}
+	writeLiveStats();
+	if (captureTimer) CloseHandle(captureTimer);
+	if(networkSender){networkSender->Stop();udpBytes=networkSender->totalBytes.load();}
+	const double elapsed = std::chrono::duration<double>(Clock::now() - measureStart).count();
+	std::wstring jsonCaptureDisplayText;
+	for (wchar_t ch : captureDisplayText)
+	{
+		if (ch == L'\\' || ch == L'"')
+			jsonCaptureDisplayText.push_back(L'\\');
+		jsonCaptureDisplayText.push_back(ch);
+	}
+	std::printf("{\"codec\":\"PyroWave\",\"gpu_shared_texture\":true,\"source\":\"%ls\",\"adapter_vendor\":%u,\"width\":%d,\"height\":%d,\"target_fps\":%d,\"warmup_s\":%d,\"measure_s\":%d,\"max_frame_bytes\":%llu,\"measured_frames\":%llu,\"capture_timeouts\":%llu,\"elapsed_s\":%.3f,\"fps\":%.3f,\"packet_bytes\":%llu,\"udp_bytes\":%llu,\"mean_bitrate_mbps\":%.3f,\"capture_p95_ms\":%.3f,\"encode_p50_ms\":%.3f,\"encode_p95_ms\":%.3f,\"packetize_p95_ms\":%.3f,\"encode_to_packets_p50_ms\":%.3f,\"encode_to_packets_p95_ms\":%.3f,\"frame_to_udp_p95_ms\":%.3f}\n",
+	            jsonCaptureDisplayText.c_str(), adapterDesc.VendorId, Width, Height, Fps, WarmupSeconds, measureSeconds, (unsigned long long)maxFrameBytes,
+	            (unsigned long long)measuredFrames, (unsigned long long)captureTimeouts, elapsed, measuredFrames / elapsed,
+	            (unsigned long long)packetBytes, (unsigned long long)udpBytes,
+	            double(packetBytes) * 8.0 / elapsed / 1000000.0,
+	            percentile(captureMs, 0.95), percentile(encodeMs, 0.50), percentile(encodeMs, 0.95),
+	            percentile(packetizeMs, 0.95), percentile(totalMs, 0.50), percentile(totalMs, 0.95), percentile(totalMs, 0.95));
+
+	pyrowave_encoder_destroy(encoder);
+	pyrowave_sync_object_destroy(sync);
+	pyrowave_image_destroy(image);
+	pyrowave_device_destroy(device);
+	CloseHandle(fenceHandle);
+	CloseHandle(textureHandle);
+	if (udp != INVALID_SOCKET) { closesocket(udp); WSACleanup(); }
+	return measuredFrames >= uint64_t(Fps * measureSeconds * 0.90) ? 0 : 19;
+}

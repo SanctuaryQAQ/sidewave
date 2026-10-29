@@ -1,0 +1,12 @@
+# Include after the existing pyrowave-shared target. This adds an offline tool only.
+if(NOT WIN32 OR NOT TARGET pyrowave-shared)
+  message(FATAL_ERROR "QualityImageCompare requires the Windows PyroScreen pyrowave-shared target")
+endif()
+if(PYROWAVE_FP32_STORAGE OR NOT PYROWAVE_FP32_MATH)
+  message(FATAL_ERROR "QualityImageCompare requires production precision 1: FP32_MATH=ON, FP32_STORAGE=OFF")
+endif()
+add_executable(QualityImageCompare EXCLUDE_FROM_ALL "${CMAKE_CURRENT_LIST_DIR}/quality_image_compare.cpp")
+target_compile_features(QualityImageCompare PRIVATE cxx_std_17)
+target_include_directories(QualityImageCompare PRIVATE "${CMAKE_CURRENT_LIST_DIR}/../vendor/pyrowave")
+target_link_libraries(QualityImageCompare PRIVATE pyrowave-shared granite-volk-headers d3d11 dxgi)
+target_compile_definitions(QualityImageCompare PRIVATE _CRT_SECURE_NO_WARNINGS)

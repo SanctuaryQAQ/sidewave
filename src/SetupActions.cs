@@ -8,7 +8,7 @@ static class SetupActions {
  static int Finish(string result,int code,string message){
   Paths.Log("setup",message);
   if(result!=null)Paths.Atomic(result,Json.Write(new{code=code,message=message}));
-  else MessageBox.Show(Language.Tr(message),"PyroScreen");
+  else MessageBox.Show(Language.Tr(message),"SideWave");
   return code;
  }
  public static int Firewall(string result=null,string callerSid=null){

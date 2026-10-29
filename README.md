@@ -1,181 +1,97 @@
-﻿# PyroScreen
+﻿<p align="center"><img src="assets/app.svg" width="96" alt="SideWave icon"></p>
 
-Windows 局域网双机副屏软件，使用 PyroWave GPU 编解码。
+<h1 align="center">SideWave</h1>
 
-**当前为 0.1 预览版。** 已完成独立双端及 2K 双机测试；新驱动、不同
-分辨率和不同 GPU 的覆盖验收仍在进行，尚不应标为稳定版。
+<p align="center">Turn a second Windows PC into a low-latency extended display over your LAN.</p>
 
-## 快速开始
+<p align="center"><b>English</b> · <a href="README.zh-CN.md">简体中文</a></p>
 
-本项目的固定发行版位于 `dist\PyroScreen\PyroScreen.exe`。开始菜单快捷方式
-固定指向这个 EXE。后续更新先从托盘菜单“退出”软件，再运行
-`tools\package.ps1`：脚本校验新版文件，将原来的完整发行目录保存到
-`dist\archive\PyroScreen-时间戳`，再将新版换入原位置。内容相同的重复打包
-不会重复归档；校验失败或程序文件被占用时保留原版。更新失败时尝试恢复原目录。
-配对和个人设置保存在 `%LOCALAPPDATA%\PyroScreen`，不会随发行目录替换。
+> **0.1 preview.** Tested PC-to-laptop at 1920×1080 and 2560×1440 from 60 to 240 FPS.
+> Other GPU vendors, drivers and resolutions are still being validated.
 
-1. 两台电脑解压同一个 PyroScreen 包，打开 PyroScreen.exe。首次默认为
-   “接收模式”，副机保留此模式。点击“网络设置”，允许软件在 Windows
-   **专用网络**的本地子网中通信。
-2. 台式机点击右上角“发送模式”，连接时接受创建虚拟屏组件所需的 UAC。
-   界面和视频程序保持普通用户权限；只为虚拟屏组件提升权限。
-   首次使用点“虚拟屏驱动”，完成 Windows 原生驱动安装确认。
-   无需添加开发证书、打开测试签名模式或信任 WinRM 通配符。
-3. 在主机端选择自动发现的副机，或输入其 IPv4 地址。首次连接输入副机
-   显示的 16 位配对码。配对码十分钟有效，可刷新。
-4. 连接后 Windows 出现扩展桌面。将程序窗口移到副屏。
-   “副机原生分辨率”默认保留原生画面尺寸，画面比例不同时按比例显示。
-5. 选择分辨率、60 / 120 / 165 / 240 FPS 和画质预算，点击“应用画面设置”。
-   同一控制连接中切换；编码器和解码器资源更新期间会短暂停顿。
+<p align="center"><img src="docs/images/app.png" width="780" alt="SideWave sender window"></p>
 
-软件记住上次选择的模式；启动发送模式默认自动连接上次配对的副机。设备身份保持时可通过发现处理
-DHCP 地址变化，也可手动更新 IP。两种模式均可勾选“随 Windows 启动
-（使用上次模式）”：登录当前 Windows 用户后在托盘运行上次模式；
-发送模式按“启动时自动连接上次副机”的设置连接。关闭选项会删除
-本用户的自启动项，不创建系统服务。
-切换模式会结束当前视频并释放本程序创建的虚拟屏，保留各模式的配对与设置。
-关闭窗口后保留托盘服务；再次打开 EXE 会显示已有窗口。“退出”停止
-视频、释放本程序创建的虚拟屏。客户端按 Esc 不会退出副屏；由主机停止或断开后返回本机桌面。
+## Highlights
 
-设备列表每三秒通过各活动 IPv4 网卡的子网广播更新，不依赖保存的 IP；
-十二秒未回应的副机会从列表中移除。两台电脑需要位于同一广播域，
-接收模式正在运行，且专用网络防火墙允许软件。访客 Wi-Fi 的客户端
-隔离、不同 VLAN 或防火墙阻断会影响发现。
+- **A real extended desktop.** The sender adds a virtual monitor; Windows treats the receiver as one more screen.
+- **GPU video path.** PyroWave wavelet encoding and decoding on the GPU, SDR 4:4:4 full range, 60 / 120 / 165 / 240 FPS.
+- **Built for latency.** Captures desktop updates immediately, with optional changed-region frames, tearing-allowed presentation and a receiver hardware cursor.
+- **Paired and private.** TLS 1.2 control channel, one-time 16-character pairing code, credentials protected with Windows DPAPI, optional AES-256-GCM video.
+- **One portable app.** The same executable sends or receives; LAN discovery, tray icon, start with Windows, Chinese and English UI.
 
-界面采用近黑色背景与深灰面板，使用 MiSans 字体（未安装时回退到 Noto Sans SC / 微软雅黑），标题同样使用 MiSans 中等字重。字体使用本机安装版本，不随软件分发。界面边框保留像素对齐，文字使用 Ideal 字体度量与灰度抗锯齿，避免强制 ClearType 的彩色边缘；正文为 15 DIP。按钮有悬停、按下和键盘焦点反馈；连接、应用、搜索
-过程中显示进度文字并避免重复点击。应用相同设置会保留当前视频实例。
-虚拟显示适配器使用固定设备身份；分辨率和刷新率相同则不重复应用
-显示模式。首次添加或移除虚拟屏仍由 Windows 处理显示拓扑，不能保证
-完全消除系统的短暂重排动画。
+## How it works
 
-界面底部“语言 / Language”可即时切换中文、English；两端各自保存语言，切换不重建视频连接。
-分辨率包括副机原生、1280×720、1600×900、1920×1080、2048×1152、2560×1440、
-3200×1800 和 3840×2160，均为 16:9。实际可用模式由虚拟屏驱动决定；
-不支持的切换会报错并尝试恢复原模式。低于物理屏原生分辨率时需要缩放，文字可能变软。
-窗口内图标使用矢量绘图，EXE/托盘图标为分别绘制的 16–256 像素多尺寸 ICO。
+<p align="center"><img src="docs/images/how-it-works.svg" width="780" alt="Sender captures a virtual display, encodes with PyroWave and streams over UDP to the receiver"></p>
 
-### 带宽与丢包保护
+## Requirements
 
-400 / 600 / 750 / 900 Mbps 是编码数据的帧预算，不是网线上的实际占用或恒定流量。
-编码帧预算 = Mbps × 1,000,000 ÷ 8 ÷ 请求 FPS，单帧限制为 64 KiB–4 MiB。
-按所选 60 / 120 / 165 / 240 FPS 持续采集和发送，静止桌面重新编码上一张快照；
-不会为节流降低采集目标，也不会将 240 FPS 自动限制到副机的 165 Hz。
-750 Mbps、165 FPS 对应约 568,181 字节/帧；静态画面及简单内容不一定用满预算。
+- Windows 10 or 11 x64 on both PCs, with a GPU that supports Vulkan and D3D11.4 shared textures and fences.
+- Both PCs on the same LAN segment with the Windows network profile set to **Private**. A wired gigabit link is recommended.
+- The sender needs the signed virtual display driver; the app installs it for you.
 
-FEC 对每个最多 32 KiB 的编码包分组，按 1,412 字节拆分，用异或产生一个
-校验分片，使用与数据分片相同的视频模式；开启视频加密时使用 AES-256-GCM 认证。接收端凑齐其他分片与
-校验后可以恢复一个缺片；同一组丢两片则不能恢复，不做延迟较高的请求重传。
-完整 32 KiB 包通常有 24 个数据分片，加一片校验约增加 4.3% 的编码包流量，
-小包比例高时开销更大。恢复计数见诊断的 fec_recovered_fragments。
+## Quick start
 
-以 IPv4、1500 MTU、接近满的编码包估算，750 Mbps 编码数据约占 820 Mbps
-线速，开启 FEC 后约 850 Mbps；实际值随分片大小与流量变化。这不包含其他应用流量。
-提供 900 Mbps 极高画质档，默认仍为 600 Mbps。编码上限与线路预算分别处理：
-根据这条控制连接两端实际网卡报告的速率，取较慢者的 90% 作为线路预算。
-逐帧估算加密、IPv4/UDP、Ethernet 与 FEC 开销，超出预算时降低下一帧的编码
-字节预算，保留有效帧率目标。复杂内容消失后逐步恢复到用户选择的上限。
-千兆线路预算为 900 Mbps；因此选 900 Mbps 编码上限不代表一定能发满 900 Mbps
-编码数据，尤其开启 FEC 时。界面显示目标帧率与线路预算，sender-live.json
-显示 requested_frame_bytes、effective_frame_bytes、estimated_wire_mbps。
-网卡速率不能识别中间交换机、无线干扰或其他应用占用；统计估算不是网卡流量仪。
-固定帧率发送端还按每秒实际 UDP 发送耗时的第 90 百分位检查余量。
-旧的桌面更新驱动模式仍使用中位数。持续发送超过一帧时间的
-95% 时，每秒最多收紧 10% 的单帧预算，目标留出约 10% 的发送余量；
-耗时降到一帧时间的 80% 以下后，每秒最多恢复 2.5%，不超过所选上限。
-这会在发送路径忙碌时降低压缩画质，以减少积压；不会降低分辨率、改为 4:2:0
-或修改 FPS 目标。第 90 百分位减少对单次调度卡顿的响应，同时照顾较慢帧。
-诊断增加 send_deadline_control、send_deadline_budget_bytes、udp_send_p50_ms；
-原生 --no-send-deadline-control 参数可关闭这项控制进行对照。
-更多数据会增加发送耗时；持续发送帧率受 GPU、网络与系统调度能力限制，
-面板实际刷新率另由屏幕硬件决定。
+1. Download the same release on both PCs, unzip it and run `PyroScreen.exe` (SideWave keeps its original executable name).
+2. On each PC click **Network setup** once and approve the Windows prompt. This allows the app on Private networks only.
+3. **On the receiver**, stay in Receive mode (the default on first launch).
 
-## 功能与边界
+   <img src="docs/images/receiver.png" width="640" alt="Receiver window with numbered steps">
 
-软件支持直接命令控制与 JSON 参数修改，见 [本地控制接口](docs/local-control.md)。
-“低延迟显示（允许撕裂）”减少呈现等待；可能出现撕裂。浮窗 `LAT` 显示
-台式机桌面内容更新到笔记本系统显示事件的全链路延迟，包含呈现后的等待。
-系统显示采样由受保护的当前用户 Windows 任务运行，安装网络设置时一并配置。
-其统计反馈可能晚约两秒到达；延迟数值使用事件时间，不把观察器等待计入视频延迟。
-固定帧率、重复快照及延迟终点详见 [固定帧率说明](docs/constant-frame-cadence.md)。
-“只传输变化区域（降低延迟）”默认关闭；开启后桌面局部变化时只编码并发送变化区域，
-实测局部变化时全链路 P50 降低约 3.5–5 ms、带宽降至约 1/10，全屏运动自动使用整帧。
-需要两端都是支持此功能的版本，详见 [只传输变化区域](docs/partial-frames.md)。
-发送端默认在桌面更新时立即采集，不再等到下一个固定采集时刻；静止画面仍按目标帧率重发，
-实测全链路 P50 再降约 2 ms、P95 降约 1.5 ms，见 [固定帧率说明](docs/constant-frame-cadence.md)。
-自动测试不需要屏幕点击。
+   ① Receive mode ② the one-time pairing code, valid for 10 minutes ③ copy it if you want to paste it on the sender.
 
-- 真实局域网发现、手动 IPv4、同一个 EXE 的发送/接收模式，无运行时 WinRM 依赖。
-- TLS 1.2 控制，配对证明绑定设备身份、随机挑战和实际 TLS 证书。
-- 视频默认使用明文 UDP，跳过逐包加解密；“视频加密”选项可启用 AES-256-GCM。
-  点击应用切换视频模式，保留控制连接。明文不提供密码学认证。
-  每次视频资源重建使用新会话标识；加密模式拒绝篡改和重放，
-  最大 UDP 负载分别为明文 1456 / 加密 1472 字节，适配通常的 1500 MTU。
-- 本地配对令牌、客户端证书与会话密钥由当前 Windows 用户 DPAPI 加密。
-- SDR sRGB / BT.709 全范围 4:4:4，无额外亮度、对比度或伽马增益。
-- 有界最新帧队列、异步原子统计写入、子进程退出自动清理。
-- UDP 提交遇到 10055（缓冲资源不足）或 10035（暂时无法提交）时，
-  排空完成通知后有限重试；最多 8 次且有 50 ms 时间限制。持续失败会记录
-  错误并退出发送引擎。主程序检测发送引擎退出，在原控制连接与虚拟屏上
-  按 1 / 2 / 4 秒间隔尝试恢复，最多三次；持续健康运行 60 秒后重置次数。
-  主动停止或副机视频窗口被关闭不会触发自动恢复。诊断记录退出码及最后一行错误。
-- 可选丢包保护：每个编解码数据包多发一片校验数据，能够恢复单片丢失。
-  增加流量，对连续多片丢失无保证；本次实测未显示明确改善，默认关闭。
-- 笔记本鼠标默认隐藏，实际移动后显示，两秒静止后隐藏；主机指针在
-  Desktop Duplication 单独提供指针时由 GPU 合成。
-- 简洁副屏 HUD：FPS 和延迟。主界面另外显示刷新率与时钟误差。
+4. **On the sender**, switch to Send mode and click **Display driver** once to install the virtual display driver.
 
-FPS 来自实际 Present 提交，系统显示反馈有效时使用显示反馈计数。
-静止桌面仍按目标节奏发送重复快照；FPS 不能代表独立桌面内容的更新次数。
-配置的 240 FPS 不是持续 240 帧验收结论；165 Hz 屏幕最多有 165 次完整物理刷新。
-浮窗只显示有效系统显示反馈计算的 `LAT`；Present 返回只保留在诊断遥测中。
-不包含液晶面板物理响应。没有新样本时显示 `--`，不使用早期终点或固定补偿。
-静止内容重复发送时保留原桌面更新时间，重复源内容不重复计算延迟。
+   <img src="docs/images/sender.png" width="640" alt="Sender window with numbered steps">
 
-当前主要针对 Windows 10/11 x64、支持 Vulkan 与 D3D11.4 外部共享纹理/
-栅栏的 GPU。有线千兆网络推荐。不同厂商 GPU、HDR、旋转屏、
-多副机并发和音频不属于本预览版已验证范围；当前客户端使用主屏。
+   ① Send mode ② pick the receiver, or type its IPv4 address ③ enter the pairing code (first connection only) ④ **Connect** ⑤ choose resolution, frame rate and quality, then **Apply display settings**.
 
-## 端口和配置
+5. A new display appears in Windows. Arrange it in **Settings › Display** and drag windows onto it.
 
-| 用途 | 协议 / 端口 |
+Paired devices reconnect without a code. Closing the window keeps SideWave in the tray; **Exit** stops the video and removes the virtual display.
+
+## Options
+
+| Option | What it does | Default |
+| --- | --- | --- |
+| Quality / bandwidth budget | Encoded-data budget of 400 / 600 / 750 / 900 Mbps; capped to 90% of the slower network adapter | 600 Mbps |
+| Video encryption | AES-256-GCM for video packets; off sends plaintext UDP with less overhead | Off |
+| Low latency display | Presents without waiting for vertical sync; tearing is possible | Off |
+| Send changed regions only | Encodes only the part of the desktop that changed; full-screen motion still sends whole frames | Off |
+| Receiver hardware cursor | Draws the pointer with the receiver's own cursor instead of inside the video (experimental) | Off |
+| Packet loss protection (FEC) | Adds one parity fragment per packet to recover a single lost fragment | Off |
+
+## Network ports
+
+| Purpose | Protocol / port |
 | --- | --- |
-| 设备发现 | UDP 55167 |
-| 配对 / 控制 / 统计 / 校时 | TLS TCP 55166 |
-| 视频（可选加密） | UDP 55165 |
+| Discovery | UDP 55167 (broadcast) |
+| Pairing, control, statistics, clock sync | TLS over TCP 55166 |
+| Video | UDP 55165 |
 
-应用“网络设置”只创建按程序限定、专用网络、LocalSubnet 防火墙规则。
-需要首次安装驱动时的 Windows 原生确认。默认不上传数据、不下载更新。
+**Network setup** only creates firewall rules for this executable, limited to Private networks and the local subnet. SideWave sends no telemetry and does not check for updates.
 
-配置和诊断位于 %LOCALAPPDATA%\PyroScreen。“诊断”按钮直接打开它。
-这些文件包含当前设备的配对关系，不能放入源码库或发布 ZIP。
-忘记配对后再次连接需要副机上的新配对码。
+## Known limitations
 
-## 构建与开源
+- Preview software. Not yet validated: other GPU vendors, HDR, rotated displays, several receivers at once, audio. The receiver uses its primary screen.
+- Discovery needs both PCs in one broadcast domain. Guest Wi-Fi isolation, VLANs or third-party firewalls can hide the receiver; enter its IP address instead.
+- Settings and pairings live in `%LOCALAPPDATA%\PyroScreen`. Never share that folder: it identifies your paired devices.
+- If the link drops during high-bitrate streaming, update the network adapter driver or choose a lower quality budget.
 
-需要 Visual Studio 2022 C++ 桌面开发、Windows SDK、Git、CMake >= 3.27
-（PATH 中没有时使用 Visual Studio 的“C++ CMake 工具”组件）、
-.NET Framework 4.8。build.ps1 获取固定提交的上游源码并构建：
+## Build from source
 
-    powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\build.ps1
+Requirements: Visual Studio 2022 with Desktop development with C++, Windows SDK, Git, CMake 3.27 or later (the Visual Studio "C++ CMake tools" component works) and .NET Framework 4.8.
 
-上游源码目录较深，请把仓库放在较短路径下（例如 C:\src\pyroscreen），
-否则 Git 可能报 Filename too long；也可执行 git config --global core.longpaths true。
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\build.ps1
+```
 
-build.ps1 -EngineRoot <已有的PyroWave源码目录> -UseExistingEngineBuild
-可复用该目录的 build-minimal\Release 共享库。发行包与源码包由
-tools\package.ps1 生成；不包含 Windows 凭据或运行数据。
+`build.ps1` fetches the pinned upstream PyroWave sources and builds everything into `build\`. Upstream paths are deep, so clone into a short path such as `C:\src\sidewave`, or run `git config --global core.longpaths true`. `tools\package.ps1` creates the release and source zips; `tests\build_tests.ps1` builds the protocol and two-machine test tools.
 
-原生验证工具可用 CMake 的 PYROSCREEN_BUILD_TEST_TOOLS=ON 构建；
-tests\build_tests.ps1 构建控制协议和界面验证工具。真实文档滚动工具
-DesktopGpuDocument 接受显示器名、文本文件和 --seconds；静态画面可使用
---static --snapshot-file。测试源码不附带已保存的配对关系。
+## Documentation
 
-项目采用 MIT；PyroWave、Granite、Vulkan headers、Volk 与驱动等保留各自
-版权和许可证，见 third_party / 发布包 licenses。虚拟屏驱动使用
-VirtualDrivers 的已签名官方二进制，安装器保留 Windows 发布者确认，
-不会修改 Root/TrustedPublisher 或测试签名设置。
+- [Technical notes](docs/technical-notes.md): runtime behavior, bandwidth control, FEC and latency metrics (Chinese)
+- [Protocol](docs/protocol.md) · [Local control API](docs/local-control.md) · [Constant frame cadence](docs/constant-frame-cadence.md) · [Changed-region frames](docs/partial-frames.md) · [Transports](docs/transports.md)
 
-参见 [协议](docs/protocol.md)、[验收清单](docs/implementation-plan.md)。
-发布到 GitHub 前应完成清洁机器与驱动模式验收，并保留“预览版”标识。
+## License
 
-传输层、共享内存及 DPDK 适用范围见 [传输方案说明](docs/transports.md)。
+SideWave is released under the [MIT License](LICENSE). PyroWave, Granite, Vulkan headers, Volk and the virtual display driver keep their own copyrights and licenses; see `third_party` and the `licenses` folder in the release. The virtual display driver is the officially signed VirtualDrivers build. Its installer keeps the Windows publisher prompt and never changes root certificates, TrustedPublisher or test-signing settings.

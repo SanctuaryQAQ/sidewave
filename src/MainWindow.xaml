@@ -1,7 +1,7 @@
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
- Title="PyroScreen" Width="1060" Height="880" MinWidth="1000" MinHeight="640"
- Background="#141414" Foreground="#F3F3F3" FontFamily="MiSans, Noto Sans SC, Microsoft YaHei UI, Segoe UI" FontSize="15"
+ Title="SideWave" Width="1060" Height="880" MinWidth="1000" MinHeight="640"
+ Background="#141414" Foreground="#F3F3F3" FontFamily="MiSans, Noto Sans SC, Microsoft YaHei UI, Segoe UI" FontSize="14"
  UseLayoutRounding="True" SnapsToDevicePixels="True" ToolTipService.ShowDuration="30000"
  TextOptions.TextFormattingMode="Ideal" TextOptions.TextRenderingMode="Grayscale" TextOptions.TextHintingMode="Auto"
  WindowStartupLocation="CenterScreen">
@@ -21,37 +21,25 @@
   <SolidColorBrush x:Key="Accent" Color="#FF8A4C"/>
   <SolidColorBrush x:Key="AccentText" Color="#1C1109"/>
   <SolidColorBrush x:Key="AccentTint" Color="#2A2019"/>
+  <!-- 应用图标：与 tools/render_icons.py 生成的 ico/png 同一设计 -->
   <DrawingImage x:Key="IconApp"><DrawingImage.Drawing><DrawingGroup>
-   <GeometryDrawing Brush="#141414" Geometry="M48 0H208Q256 0 256 48V208Q256 256 208 256H48Q0 256 0 208V48Q0 0 48 0"/>
-   <GeometryDrawing Brush="#222222" Geometry="M42 44H169Q181 44 181 56V144Q181 156 169 156H42Q30 156 30 144V56Q30 44 42 44"><GeometryDrawing.Pen><Pen Brush="#A8A8A8" Thickness="12"/></GeometryDrawing.Pen></GeometryDrawing>
-   <GeometryDrawing Geometry="M88 162V198M57 198H111"><GeometryDrawing.Pen><Pen Brush="#A8A8A8" Thickness="12"/></GeometryDrawing.Pen></GeometryDrawing>
-   <GeometryDrawing Brush="#191919" Geometry="M113 108H215Q227 108 227 120V195Q227 207 215 207H113Q101 207 101 195V120Q101 108 113 108"><GeometryDrawing.Pen><Pen Brush="#EEEEEE" Thickness="12"/></GeometryDrawing.Pen></GeometryDrawing>
-   <GeometryDrawing Geometry="M139 157H189L174 142M189 157L174 172"><GeometryDrawing.Pen><Pen Brush="#EEEEEE" Thickness="12" LineJoin="Round"/></GeometryDrawing.Pen></GeometryDrawing>
-  </DrawingGroup></DrawingImage.Drawing></DrawingImage>
-  <DrawingImage x:Key="IconHost"><DrawingImage.Drawing><DrawingGroup>
-   <GeometryDrawing Brush="#141414" Geometry="M48 0H208Q256 0 256 48V208Q256 256 208 256H48Q0 256 0 208V48Q0 0 48 0"/>
-   <GeometryDrawing Brush="#222222" Geometry="M42 44H169Q181 44 181 56V144Q181 156 169 156H42Q30 156 30 144V56Q30 44 42 44"><GeometryDrawing.Pen><Pen Brush="#A8A8A8" Thickness="12"/></GeometryDrawing.Pen></GeometryDrawing>
-   <GeometryDrawing Geometry="M88 162V198M57 198H111"><GeometryDrawing.Pen><Pen Brush="#A8A8A8" Thickness="12"/></GeometryDrawing.Pen></GeometryDrawing>
-   <GeometryDrawing Brush="#191919" Geometry="M113 108H215Q227 108 227 120V195Q227 207 215 207H113Q101 207 101 195V120Q101 108 113 108"><GeometryDrawing.Pen><Pen Brush="#EEEEEE" Thickness="12"/></GeometryDrawing.Pen></GeometryDrawing>
-   <GeometryDrawing Geometry="M139 157H189L174 142M189 157L174 172"><GeometryDrawing.Pen><Pen Brush="#EEEEEE" Thickness="12" LineJoin="Round"/></GeometryDrawing.Pen></GeometryDrawing>
-  </DrawingGroup></DrawingImage.Drawing></DrawingImage>
-  <DrawingImage x:Key="IconClient"><DrawingImage.Drawing><DrawingGroup>
-   <GeometryDrawing Brush="#141414" Geometry="M48 0H208Q256 0 256 48V208Q256 256 208 256H48Q0 256 0 208V48Q0 0 48 0"/>
-   <GeometryDrawing Brush="#222222" Geometry="M42 44H169Q181 44 181 56V144Q181 156 169 156H42Q30 156 30 144V56Q30 44 42 44"><GeometryDrawing.Pen><Pen Brush="#A8A8A8" Thickness="12"/></GeometryDrawing.Pen></GeometryDrawing>
-   <GeometryDrawing Geometry="M88 162V198M57 198H111"><GeometryDrawing.Pen><Pen Brush="#A8A8A8" Thickness="12"/></GeometryDrawing.Pen></GeometryDrawing>
-   <GeometryDrawing Brush="#191919" Geometry="M113 108H215Q227 108 227 120V195Q227 207 215 207H113Q101 207 101 195V120Q101 108 113 108"><GeometryDrawing.Pen><Pen Brush="#EEEEEE" Thickness="12"/></GeometryDrawing.Pen></GeometryDrawing>
-   <GeometryDrawing Geometry="M189 157H139L154 142M139 157L154 172"><GeometryDrawing.Pen><Pen Brush="#EEEEEE" Thickness="12" LineJoin="Round"/></GeometryDrawing.Pen></GeometryDrawing>
+   <GeometryDrawing><GeometryDrawing.Geometry><RectangleGeometry Rect="1.5,1.5,253,253" RadiusX="55" RadiusY="55"/></GeometryDrawing.Geometry>
+    <GeometryDrawing.Brush><LinearGradientBrush StartPoint="0,0" EndPoint="1,1"><GradientStop Color="#2A2A2E" Offset="0"/><GradientStop Color="#101012" Offset="1"/></LinearGradientBrush></GeometryDrawing.Brush>
+    <GeometryDrawing.Pen><Pen Brush="#3E3E44" Thickness="3"/></GeometryDrawing.Pen></GeometryDrawing>
+   <GeometryDrawing Geometry="M52,128 L54,125.4 L56,122.7 L58,120.1 L60,117.6 L62,115.1 L64,112.8 L66,110.5 L68,108.3 L70,106.3 L72,104.5 L74,102.7 L76,101.2 L78,99.9 L80,98.7 L82,97.7 L84,97 L86,96.4 L88,96.1 L90,96 L92,96.1 L94,96.4 L96,97 L98,97.7 L100,98.7 L102,99.9 L104,101.2 L106,102.7 L108,104.5 L110,106.3 L112,108.3 L114,110.5 L116,112.8 L118,115.1 L120,117.6 L122,120.1 L124,122.7 L126,125.4 L128,128 L130,130.6 L132,133.3 L134,135.9 L136,138.4 L138,140.9 L140,143.2 L142,145.5 L144,147.7 L146,149.7 L148,151.5 L150,153.3 L152,154.8 L154,156.1 L156,157.3 L158,158.3 L160,159 L162,159.6 L164,159.9 L166,160 L168,159.9 L170,159.6 L172,159 L174,158.3 L176,157.3 L178,156.1 L180,154.8 L182,153.3 L184,151.5 L186,149.7 L188,147.7 L190,145.5 L192,143.2 L194,140.9 L196,138.4 L198,135.9 L200,133.3 L202,130.6 L204,128"><GeometryDrawing.Pen><Pen Thickness="32" StartLineCap="Round" EndLineCap="Round" LineJoin="Round">
+    <Pen.Brush><LinearGradientBrush StartPoint="0,0" EndPoint="1,1"><GradientStop Color="#FFAA60" Offset="0"/><GradientStop Color="#EC542A" Offset="1"/></LinearGradientBrush></Pen.Brush></Pen></GeometryDrawing.Pen></GeometryDrawing>
   </DrawingGroup></DrawingImage.Drawing></DrawingImage>
 
-  <!-- 文字与容器 -->
-  <Style x:Key="Section" TargetType="TextBlock"><Setter Property="FontSize" Value="18"/><Setter Property="FontWeight" Value="Medium"/></Style>
-  <Style x:Key="Label" TargetType="TextBlock"><Setter Property="FontSize" Value="13"/><Setter Property="Foreground" Value="{StaticResource TextDim}"/></Style>
+  <!-- 文字与容器。字号层级：标题 20 · 分区 16 · 正文 14 · 标签/说明 12.5 -->
+  <Style x:Key="Section" TargetType="TextBlock"><Setter Property="FontSize" Value="16"/><Setter Property="FontWeight" Value="SemiBold"/></Style>
+  <Style x:Key="Label" TargetType="TextBlock"><Setter Property="FontSize" Value="12.5"/><Setter Property="Foreground" Value="{StaticResource TextDim}"/></Style>
+  <Style x:Key="Hint" TargetType="TextBlock"><Setter Property="FontSize" Value="12.5"/><Setter Property="Foreground" Value="{StaticResource TextFaint}"/><Setter Property="TextWrapping" Value="Wrap"/></Style>
   <Style x:Key="CardPanel" TargetType="Border">
    <Setter Property="Background" Value="{StaticResource Card}"/><Setter Property="BorderBrush" Value="{StaticResource CardBorder}"/>
    <Setter Property="BorderThickness" Value="1"/><Setter Property="CornerRadius" Value="14"/><Setter Property="Padding" Value="22"/>
   </Style>
   <Style TargetType="ToolTip">
-   <Setter Property="Foreground" Value="#E8E8E8"/><Setter Property="FontSize" Value="13"/>
+   <Setter Property="Foreground" Value="#E8E8E8"/><Setter Property="FontSize" Value="12.5"/>
    <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ToolTip">
     <Border Background="#262626" BorderBrush="#3C3C3C" BorderThickness="1" CornerRadius="8" Padding="11,8" MaxWidth="380">
      <ContentPresenter><ContentPresenter.Resources><Style TargetType="TextBlock"><Setter Property="TextWrapping" Value="Wrap"/><Setter Property="LineHeight" Value="20"/></Style></ContentPresenter.Resources></ContentPresenter>
@@ -128,11 +116,11 @@
    </Style.Triggers>
   </Style>
   <Style x:Key="SmallButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
-   <Setter Property="Padding" Value="13,6"/><Setter Property="FontSize" Value="13"/><Setter Property="Margin" Value="0"/>
+   <Setter Property="Padding" Value="13,6"/><Setter Property="FontSize" Value="12.5"/><Setter Property="Margin" Value="0"/>
   </Style>
   <Style x:Key="QuietButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
    <Setter Property="Background" Value="Transparent"/><Setter Property="BorderBrush" Value="Transparent"/>
-   <Setter Property="Foreground" Value="{StaticResource TextDim}"/><Setter Property="FontSize" Value="14"/>
+   <Setter Property="Foreground" Value="{StaticResource TextDim}"/><Setter Property="FontSize" Value="13"/>
    <Setter Property="Padding" Value="12,7"/><Setter Property="Margin" Value="0,0,2,0"/>
    <Style.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter Property="Foreground" Value="{StaticResource Text}"/></Trigger></Style.Triggers>
   </Style>
@@ -282,20 +270,20 @@
   </Grid.RowDefinitions>
 
   <!-- 顶部：身份 + 模式切换 -->
-  <DockPanel Margin="0,0,0,22">
+  <DockPanel Margin="0,0,0,20">
    <Border DockPanel.Dock="Right" Background="{StaticResource Card}" BorderBrush="{StaticResource CardBorder}" BorderThickness="1" CornerRadius="11" Padding="3" VerticalAlignment="Center">
     <StackPanel Orientation="Horizontal">
      <Button Name="SendMode" Content="发送模式" Style="{StaticResource SegmentButton}"/>
      <Button Name="ReceiveMode" Content="接收模式" Style="{StaticResource SegmentButton}"/>
     </StackPanel>
    </Border>
-   <ComboBox Name="LanguageChoice" DockPanel.Dock="Right" AutomationProperties.Name="语言 / Language" ToolTip="语言 / Language" Width="124" MinHeight="36" Margin="0,0,14,0" VerticalAlignment="Center" FontSize="14">
+   <ComboBox Name="LanguageChoice" DockPanel.Dock="Right" AutomationProperties.Name="语言 / Language" ToolTip="语言 / Language" Width="112" MinHeight="36" Margin="0,0,12,0" VerticalAlignment="Center" FontSize="13">
     <ComboBoxItem Content="中文"/><ComboBoxItem Content="English"/>
    </ComboBox>
-   <Image Name="RoleIcon" Width="46" Height="46" Margin="0,0,16,0" DockPanel.Dock="Left"/>
+   <Image Name="RoleIcon" Width="40" Height="40" Margin="0,0,14,0" DockPanel.Dock="Left"/>
    <StackPanel VerticalAlignment="Center">
-    <TextBlock Name="Heading" Text="PyroScreen" FontFamily="MiSans, Noto Sans SC, Microsoft YaHei UI, Segoe UI" FontSize="26" FontWeight="Medium"/>
-    <TextBlock Name="Version" Text="0.1 · PREVIEW" FontSize="12" Foreground="{StaticResource TextFaint}" Margin="1,1,0,0"/>
+    <TextBlock Name="Heading" Text="SideWave" FontSize="20" FontWeight="SemiBold"/>
+    <TextBlock Name="Version" Text="0.1 Preview" FontSize="12.5" Foreground="{StaticResource TextDim}" Margin="0,1,0,0"/>
    </StackPanel>
   </DockPanel>
 
@@ -311,24 +299,24 @@
         <Button Name="Scan" AutomationProperties.Name="刷新" Content="刷新" Style="{StaticResource SmallButton}" DockPanel.Dock="Right" HorizontalAlignment="Right"/>
         <TextBlock Text="可用副机" Style="{StaticResource Section}" VerticalAlignment="Center"/>
        </DockPanel>
-       <Border Grid.Row="1" Margin="0,16,0,18" MinHeight="150" Background="{StaticResource Inset}" BorderBrush="{StaticResource InsetBorder}" BorderThickness="1" CornerRadius="10">
+       <Border Grid.Row="1" Margin="0,14,0,18" MinHeight="120" Background="{StaticResource Inset}" BorderBrush="{StaticResource InsetBorder}" BorderThickness="1" CornerRadius="10">
         <Grid>
          <ListBox Name="Devices" Background="Transparent" BorderThickness="0" Foreground="{StaticResource Text}" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
           <ListBox.ItemTemplate><DataTemplate>
            <DockPanel>
             <Border DockPanel.Dock="Right" Background="#242424" CornerRadius="6" Padding="9,3" VerticalAlignment="Center" Margin="12,0,0,0">
-             <TextBlock FontSize="12.5" Foreground="{StaticResource TextDim}"><Run Text="{Binding Width,Mode=OneWay}"/><Run Text=" × "/><Run Text="{Binding Height,Mode=OneWay}"/></TextBlock>
+             <TextBlock FontSize="12" Foreground="{StaticResource TextDim}"><Run Text="{Binding Width,Mode=OneWay}"/><Run Text=" × "/><Run Text="{Binding Height,Mode=OneWay}"/></TextBlock>
             </Border>
             <StackPanel>
              <TextBlock Text="{Binding Name}" FontWeight="Medium" TextTrimming="CharacterEllipsis"/>
-             <TextBlock Text="{Binding Ip}" FontSize="13" Foreground="{StaticResource TextDim}" Margin="0,2,0,0"/>
+             <TextBlock Text="{Binding Ip}" FontSize="12.5" Foreground="{StaticResource TextDim}" Margin="0,2,0,0"/>
             </StackPanel>
            </DockPanel>
           </DataTemplate></ListBox.ItemTemplate>
          </ListBox>
          <StackPanel Name="NoDevices" HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False" Margin="24,0">
           <TextBlock Text="暂无设备" HorizontalAlignment="Center" Foreground="{StaticResource TextDim}"/>
-          <TextBlock Text="副机需处于接收模式，并已允许专用网络。" FontSize="13" HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap" Foreground="{StaticResource TextFaint}" Margin="0,6,0,0"/>
+          <TextBlock Text="副机需处于接收模式，并已允许专用网络。" Style="{StaticResource Hint}" HorizontalAlignment="Center" TextAlignment="Center" Margin="0,6,0,0"/>
           <StackPanel.Style><Style TargetType="StackPanel"><Style.Triggers>
            <DataTrigger Binding="{Binding HasItems,ElementName=Devices}" Value="True"><Setter Property="Visibility" Value="Collapsed"/></DataTrigger>
           </Style.Triggers></Style></StackPanel.Style>
@@ -336,16 +324,23 @@
         </Grid>
        </Border>
        <StackPanel Grid.Row="2">
-        <TextBlock Text="IP 地址" Style="{StaticResource Label}"/>
-        <TextBox Name="Address" Margin="0,6,0,0" AutomationProperties.Name="副机IP地址" ToolTip="也可以从设备列表选择"/>
-        <TextBlock Text="首次连接的配对码" Style="{StaticResource Label}" Margin="0,14,0,0"/>
-        <TextBox Name="PairCode" Margin="0,6,0,0" AutomationProperties.Name="配对码" MaxLength="24" ToolTip="输入副机显示的配对码；已配对设备留空"/>
-        <Grid Margin="0,18,0,0">
+        <Grid>
+         <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="12"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+         <StackPanel>
+          <TextBlock Text="IP 地址" Style="{StaticResource Label}"/>
+          <TextBox Name="Address" Margin="0,6,0,0" AutomationProperties.Name="副机IP地址" ToolTip="也可以从设备列表选择"/>
+         </StackPanel>
+         <StackPanel Grid.Column="2">
+          <TextBlock Text="配对码（首次连接）" Style="{StaticResource Label}"/>
+          <TextBox Name="PairCode" Margin="0,6,0,0" AutomationProperties.Name="配对码" MaxLength="24" ToolTip="输入副机显示的配对码；已配对设备留空"/>
+         </StackPanel>
+        </Grid>
+        <Grid Margin="0,16,0,0">
          <Grid.ColumnDefinitions><ColumnDefinition Width="2*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
          <Button Name="Connect" AutomationProperties.Name="连接副机" Content="连接副机" Style="{StaticResource PrimaryButton}" Padding="18,11" Margin="0,0,8,0"/>
          <Button Name="Disconnect" Grid.Column="1" AutomationProperties.Name="断开" Content="断开" IsEnabled="False" Padding="18,11" Margin="0"/>
         </Grid>
-        <Border Height="1" Background="{StaticResource Hairline}" Margin="0,20,0,16"/>
+        <Border Height="1" Background="{StaticResource Hairline}" Margin="0,18,0,14"/>
         <CheckBox Name="AutoConnect" Content="启动时自动连接上次副机"/>
        </StackPanel>
       </Grid>
@@ -354,7 +349,7 @@
      <Border Grid.Column="2" Style="{StaticResource CardPanel}">
       <StackPanel>
        <TextBlock Text="画面设置" Style="{StaticResource Section}"/>
-       <TextBlock Text="分辨率" Style="{StaticResource Label}" Margin="0,18,0,0"/>
+       <TextBlock Text="分辨率" Style="{StaticResource Label}" Margin="0,16,0,0"/>
        <ComboBox Name="Resolution" AutomationProperties.Name="分辨率" ToolTip="是否可用取决于虚拟屏驱动；失败时恢复原模式。" MaxDropDownHeight="340"/>
        <Grid Margin="0,14,0,0">
         <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="12"/><ColumnDefinition Width="1.5*"/></Grid.ColumnDefinitions>
@@ -373,43 +368,42 @@
          </ComboBox>
         </StackPanel>
        </Grid>
-       <TextBlock Name="BandwidthNote" Text="按所选帧率持续发送；屏幕实际刷新由硬件决定。" FontSize="13" Foreground="{StaticResource TextFaint}" Margin="0,10,0,0" TextWrapping="Wrap"/>
-       <Button Name="Apply" AutomationProperties.Name="应用画面设置" Content="应用画面设置" Style="{StaticResource PrimaryButton}" Padding="18,11" Margin="0,18,0,0" IsEnabled="False"/>
-       <TextBlock Text="切换参数保留控制连接，画面会短暂停顿。&#10;静止画面也持续发送；实际刷新受屏幕硬件限制。"
-        Foreground="{StaticResource TextFaint}" FontSize="12.5" TextWrapping="Wrap" LineHeight="19" Margin="0,12,0,0"/>
-       <TextBlock Text="传输选项" Style="{StaticResource Label}" Margin="0,22,0,8"/>
+       <TextBlock Name="BandwidthNote" Text="按所选帧率持续发送；屏幕实际刷新由硬件决定。" Style="{StaticResource Hint}" Margin="0,8,0,0"/>
+       <Button Name="Apply" AutomationProperties.Name="应用画面设置" Content="应用画面设置" Style="{StaticResource PrimaryButton}" Padding="18,10" Margin="0,14,0,0" IsEnabled="False"
+        ToolTip="切换参数保留控制连接，画面会短暂停顿。&#10;静止画面也持续发送；实际刷新受屏幕硬件限制。"/>
+       <TextBlock Text="传输选项" Style="{StaticResource Label}" Margin="0,20,0,8"/>
        <Border Background="{StaticResource Inset}" BorderBrush="{StaticResource InsetBorder}" BorderThickness="1" CornerRadius="10">
         <StackPanel>
-         <CheckBox Name="VideoEncryption" Content="视频加密" Margin="16,11" ToolTip="关闭后使用明文 UDP 视频，减少逐包加解密开销；点应用后生效。"/>
+         <CheckBox Name="VideoEncryption" Content="视频加密" Margin="14,9" ToolTip="关闭后使用明文 UDP 视频，减少逐包加解密开销；点应用后生效。"/>
          <Border Height="1" Background="{StaticResource Hairline}"/>
-         <CheckBox Name="AllowTearing" Content="低延迟显示（允许撕裂）" Margin="16,11" ToolTip="减少呈现等待；可能出现画面撕裂。LAT 使用系统显示采样，包含渲染和显示等待；不包含面板响应。点应用后生效。"/>
+         <CheckBox Name="AllowTearing" Content="低延迟显示（允许撕裂）" Margin="14,9" ToolTip="减少呈现等待；可能出现画面撕裂。LAT 使用系统显示采样，包含渲染和显示等待；不包含面板响应。点应用后生效。"/>
          <Border Height="1" Background="{StaticResource Hairline}"/>
-         <CheckBox Name="PartialFrames" Content="只传输变化区域（降低延迟）" Margin="16,11" ToolTip="桌面只有局部变化时只编码并发送变化区域，减少传输时间和带宽；全屏运动时自动发送整帧。需要副机也升级到支持此功能的版本。点应用后生效。"/>
+         <CheckBox Name="PartialFrames" Content="只传输变化区域（降低延迟）" Margin="14,9" ToolTip="桌面只有局部变化时只编码并发送变化区域，减少传输时间和带宽；全屏运动时自动发送整帧。需要副机也升级到支持此功能的版本。点应用后生效。"/>
          <Border Height="1" Background="{StaticResource Hairline}"/>
-         <CheckBox Name="ClientCursor" Content="副机硬件光标（实验）" Margin="16,11" ToolTip="主机鼠标位置和形状单独发送，副机用自己的系统硬件光标显示，不再等待视频编码和解码；画面里不再合成主机光标。副机切到其他程序时不移动其鼠标。需要副机也升级。点应用后生效。"/>
+         <CheckBox Name="ClientCursor" Content="副机硬件光标（实验）" Margin="14,9" ToolTip="主机鼠标位置和形状单独发送，副机用自己的系统硬件光标显示，不再等待视频编码和解码；画面里不再合成主机光标。副机切到其他程序时不移动其鼠标。需要副机也升级。点应用后生效。"/>
          <Border Height="1" Background="{StaticResource Hairline}"/>
-         <CheckBox Name="PacketProtection" Content="丢包保护（FEC）" Margin="16,11" ToolTip="每个视频数据包增加一片校验数据，可恢复一片丢失；点应用后生效。"/>
+         <CheckBox Name="PacketProtection" Content="丢包保护（FEC）" Margin="14,9" ToolTip="每个视频数据包增加一片校验数据，可恢复一片丢失；点应用后生效。"/>
         </StackPanel>
        </Border>
       </StackPanel>
      </Border>
     </Grid>
 
-    <Border Name="ClientPanel" Visibility="Collapsed" Style="{StaticResource CardPanel}" Padding="38" Width="640" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,16,0,0">
+    <Border Name="ClientPanel" Visibility="Collapsed" Style="{StaticResource CardPanel}" Padding="34" Width="600" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,12,0,0">
      <StackPanel>
-      <TextBlock Text="让这台电脑成为副屏" FontSize="24" FontWeight="Medium"/>
-      <TextBlock Name="ClientAddresses" Foreground="{StaticResource TextDim}" Margin="0,10,0,0" TextWrapping="Wrap"/>
-      <TextBlock Text="首次配对码 · 10 分钟有效" Style="{StaticResource Label}" Margin="0,30,0,8"/>
-      <TextBox Name="ClientCode" IsReadOnly="True" TextAlignment="Center" FontFamily="Bahnschrift, Consolas" FontSize="34" Padding="16,16" AutomationProperties.Name="客户端配对码"/>
-      <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
+      <TextBlock Text="让这台电脑成为副屏" FontSize="20" FontWeight="SemiBold"/>
+      <TextBlock Name="ClientAddresses" Foreground="{StaticResource TextDim}" Margin="0,8,0,0" TextWrapping="Wrap"/>
+      <TextBlock Text="首次配对码 · 10 分钟有效" Style="{StaticResource Label}" Margin="0,26,0,8"/>
+      <TextBox Name="ClientCode" IsReadOnly="True" TextAlignment="Center" FontFamily="Bahnschrift, Consolas" FontSize="30" Padding="16,14" AutomationProperties.Name="客户端配对码"/>
+      <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
        <Button Name="CopyCode" Content="复制配对码" Style="{StaticResource PrimaryButton}"/><Button Name="RenewCode" Content="刷新配对码"/>
       </StackPanel>
-      <Border Height="1" Background="{StaticResource Hairline}" Margin="0,28,0,20"/>
-      <Border HorizontalAlignment="Left" Background="{StaticResource Inset}" BorderBrush="{StaticResource InsetBorder}" BorderThickness="1" CornerRadius="8" Padding="13,8">
-       <TextBlock Name="ClientSpecs" Foreground="#D6D6D6" FontSize="15"/>
+      <Border Height="1" Background="{StaticResource Hairline}" Margin="0,24,0,18"/>
+      <Border HorizontalAlignment="Left" Background="{StaticResource Inset}" BorderBrush="{StaticResource InsetBorder}" BorderThickness="1" CornerRadius="8" Padding="12,7">
+       <TextBlock Name="ClientSpecs" Foreground="#D6D6D6" FontSize="13"/>
       </Border>
       <TextBlock Text="配对后等待主机连接，即可显示真实扩展桌面。&#10;主机停止或断开后返回本机桌面。窗口关闭后仍在托盘等待。&#10;本机鼠标默认隐藏，移动后显示，两秒静止后隐藏。"
-       Foreground="{StaticResource TextDim}" FontSize="14" LineHeight="26" TextWrapping="Wrap" Margin="0,18,0,0"/>
+       Foreground="{StaticResource TextDim}" FontSize="13" LineHeight="22" TextWrapping="Wrap" Margin="0,16,0,0"/>
      </StackPanel>
     </Border>
    </Grid>
@@ -420,7 +414,7 @@
    <Border Background="{StaticResource Card}" BorderBrush="{StaticResource CardBorder}" BorderThickness="1" CornerRadius="10" Padding="16,11">
     <DockPanel>
      <Border DockPanel.Dock="Right" Background="{StaticResource Inset}" BorderBrush="{StaticResource InsetBorder}" BorderThickness="1" CornerRadius="7" Padding="11,4" Margin="16,0,0,0" VerticalAlignment="Center">
-      <TextBlock Name="Telemetry" Text="FPS --  ·  延迟 -- ms" Foreground="#D6D6D6" FontSize="13" VerticalAlignment="Center"/>
+      <TextBlock Name="Telemetry" Text="FPS --  ·  延迟 -- ms" Foreground="#D6D6D6" FontSize="12.5" VerticalAlignment="Center"/>
      </Border>
      <TextBlock Name="Status" Text="正在初始化…" TextWrapping="Wrap" Foreground="#F0F0F0" VerticalAlignment="Center"/>
     </DockPanel>

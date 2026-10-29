@@ -38,7 +38,7 @@ static class SystemInspection {
  static string T(string text){return Language.Tr(text);}
  public static string Report(string page,string state,string inspection){
   var d=Json.Read(inspection);var live=Json.Read(state);var b=new StringBuilder();
-  b.AppendLine("PyroScreen · "+DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
+  b.AppendLine("SideWave · "+DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
   if(page!="driver"){
    b.AppendLine(T("网络连接"));int count=0,privateCount=0;
    foreach(var p in Rows(d,"profiles")){count++;string category=Json.S(p,"category");if(category=="Private")privateCount++;b.AppendLine("  "+Json.S(p,"name")+" · "+category+" · "+Json.S(p,"addresses"));}
@@ -86,7 +86,7 @@ class MaintenanceWindow {
  MaintenanceWindow(Window owner,string page,Func<string> state,Action<string,Action<int,string>> setup){
   this.page=page;this.state=state;this.setup=setup;
   string title=page=="network"?"网络设置":page=="driver"?"虚拟屏驱动":"诊断";
-  dialog=new Window{Owner=owner,Title="PyroScreen · "+T(title),Width=800,Height=620,MinWidth=680,MinHeight=460,Background=owner.Background,Foreground=owner.Foreground,FontFamily=owner.FontFamily,FontSize=14,WindowStartupLocation=WindowStartupLocation.CenterOwner,Resources=owner.Resources};
+  dialog=new Window{Owner=owner,Title="SideWave · "+T(title),Width=800,Height=620,MinWidth=680,MinHeight=460,Background=owner.Background,Foreground=owner.Foreground,FontFamily=owner.FontFamily,FontSize=14,WindowStartupLocation=WindowStartupLocation.CenterOwner,Resources=owner.Resources};
   var grid=new Grid{Margin=new Thickness(24)};grid.RowDefinitions.Add(new RowDefinition{Height=GridLength.Auto});grid.RowDefinitions.Add(new RowDefinition());grid.RowDefinitions.Add(new RowDefinition{Height=GridLength.Auto});grid.RowDefinitions.Add(new RowDefinition{Height=GridLength.Auto});
   var heading=new TextBlock{Text=T(title),FontSize=24,Margin=new Thickness(0,0,0,16)};grid.Children.Add(heading);
   report=new TextBox{Name="MaintenanceReport",IsReadOnly=true,TextWrapping=TextWrapping.Wrap,VerticalScrollBarVisibility=ScrollBarVisibility.Auto,HorizontalScrollBarVisibility=ScrollBarVisibility.Disabled,Padding=new Thickness(14),Text=T("正在检查…")};Grid.SetRow(report,1);grid.Children.Add(report);

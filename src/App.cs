@@ -46,11 +46,11 @@ class App {
   if(!client&&segmentationOverride.HasValue)settings.UdpSegmentation=segmentationOverride.Value;
   settings.Save(client?"client":"host");
   using(var source=File.OpenRead(Path.Combine(Paths.Bin,"MainWindow.xaml")))window=(Window)XamlReader.Load(source);
-  window.Title="PyroScreen · "+Language.Tr(client?"接收模式":"发送模式");
+  window.Title="SideWave · "+Language.Tr(client?"接收模式":"发送模式");
   window.SourceInitialized+=(s,e)=>DarkCaption(new WindowInteropHelper(window).Handle);
-  C<TextBlock>("Heading").Text=Language.Tr("PyroScreen "+(client?"接收模式":"发送模式"));
+  C<TextBlock>("Version").Text=Language.Tr(client?"接收模式":"发送模式")+" · 0.1 Preview";
   string image=Path.Combine(Paths.Bin,client?"client.png":"host.png");
-  C<Image>("RoleIcon").Source=(System.Windows.Media.ImageSource)window.FindResource(client?"IconClient":"IconHost");
+  C<Image>("RoleIcon").Source=(System.Windows.Media.ImageSource)window.FindResource("IconApp");
   window.Icon=(System.Windows.Media.ImageSource)window.FindResource("IconApp");
   C<Button>("SendMode").IsEnabled=client;C<Button>("ReceiveMode").IsEnabled=!client;
   C<Button>("SendMode").Click+=(s,e)=>SwitchMode(false);
@@ -66,8 +66,8 @@ class App {
    if(MessageBox.Show(window,Language.Tr("删除已配对设备，下一次连接需要重新输入配对码。"),Language.Tr("忘记配对"),MessageBoxButton.OKCancel)!=MessageBoxResult.OK)return;
    Queue(()=>{manualStop=true;if(link!=null)link.Disconnect();if(server!=null)server.ForgetPairings();else{settings.ForgetTokens("host");Buttons();}SetStatus("配对已删除");});
   };
-  window.Closing+=(s,e)=>{if(!exiting){e.Cancel=true;window.Hide();tray.ShowBalloonTip(1200,"PyroScreen",Language.Tr("软件继续在托盘运行。使用“退出”结束副屏。"),Forms.ToolTipIcon.Info);}};
-  tray=new Forms.NotifyIcon{Visible=true,Text=client?"PyroScreen 接收模式":"PyroScreen 发送模式",
+  window.Closing+=(s,e)=>{if(!exiting){e.Cancel=true;window.Hide();tray.ShowBalloonTip(1200,"SideWave",Language.Tr("软件继续在托盘运行。使用“退出”结束副屏。"),Forms.ToolTipIcon.Info);}};
+  tray=new Forms.NotifyIcon{Visible=true,Text=client?"SideWave 接收模式":"SideWave 发送模式",
     Icon=new System.Drawing.Icon(Path.Combine(Paths.Bin,"app.ico"))};
   tray.DoubleClick+=(s,e)=>Show();
   var menu=new Forms.ContextMenuStrip();menu.Items.Add("打开",null,(s,e)=>Show());menu.Items.Add("退出",null,(s,e)=>Exit());tray.ContextMenuStrip=menu;
@@ -214,9 +214,9 @@ class App {
  }
  void RefreshLanguage(){
   foreach(var translate in translations)translate();
-  window.Title="PyroScreen · "+Language.Tr(client?"接收模式":"发送模式");
-  C<TextBlock>("Heading").Text="PyroScreen "+Language.Tr(client?"接收模式":"发送模式");
-  tray.Text="PyroScreen "+Language.Tr(client?"接收模式":"发送模式");
+  window.Title="SideWave · "+Language.Tr(client?"接收模式":"发送模式");
+  C<TextBlock>("Version").Text=Language.Tr(client?"接收模式":"发送模式")+" · 0.1 Preview";
+  tray.Text="SideWave "+Language.Tr(client?"接收模式":"发送模式");
   tray.ContextMenuStrip.Items[0].Text=Language.Tr("打开");tray.ContextMenuStrip.Items[1].Text=Language.Tr("退出");
   if(client){C<TextBlock>("ClientAddresses").Text=Language.Tr(clientAddressText);C<TextBlock>("ClientSpecs").Text=Language.Tr(clientSpecsText);C<TextBlock>("Telemetry").Text=Language.Tr("TLS 控制 · UDP 视频（加密可选）");}
   else{Buttons();C<Button>("Scan").Content=Language.Tr(C<Button>("Scan").IsEnabled?"刷新":"搜索中…");}
@@ -479,16 +479,16 @@ class App {
    bool created;using(var mutex=new Mutex(true,@"Local\PyroScreen-"+WindowsIdentity.GetCurrent().User.Value,out created)){
     if(!created){
      try{using(var pipe=new NamedPipeClientStream(".",PipeName(),PipeDirection.Out)){pipe.Connect(2000);string command=args.Contains("--send")?"SEND":args.Contains("--receive")?"RECV":"SHOW";byte[] bytes=System.Text.Encoding.ASCII.GetBytes(command);pipe.Write(bytes,0,4);}return 0;}
-     catch(Exception e){Paths.Log("startup",e.ToString());MessageBox.Show(Language.Tr("PyroScreen 已在运行："+e.Message));return 1;}
+     catch(Exception e){Paths.Log("startup",e.ToString());MessageBox.Show(Language.Tr("SideWave 已在运行："+e.Message));return 1;}
     }
     try{
       var app=new Application{ShutdownMode=ShutdownMode.OnExplicitShutdown};
-      app.DispatcherUnhandledException+=(s,e)=>{Paths.Log("app",e.Exception.ToString());MessageBox.Show(Language.Tr(e.Exception.Message),"PyroScreen");e.Handled=true;};
+      app.DispatcherUnhandledException+=(s,e)=>{Paths.Log("app",e.Exception.ToString());MessageBox.Show(Language.Tr(e.Exception.Message),"SideWave");e.Handled=true;};
       var ui=new App(client,args.Contains("--no-auto"));if(args.Contains("--tray"))ui.window.Hide();app.Run();Paths.CleanupSession();
     }finally{mutex.ReleaseMutex();}
    }
    return 0;
-  }catch(Exception e){Paths.Log("startup",e.ToString());MessageBox.Show(Language.Tr(e.Message),Language.Tr("PyroScreen 启动失败"));return 1;}
+  }catch(Exception e){Paths.Log("startup",e.ToString());MessageBox.Show(Language.Tr(e.Message),Language.Tr("SideWave 启动失败"));return 1;}
  }
 }
 }

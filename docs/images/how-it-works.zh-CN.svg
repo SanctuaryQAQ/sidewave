@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 330" font-family="'Segoe UI','Microsoft YaHei UI','PingFang SC',system-ui,sans-serif">
+<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#FF8A4C"/></marker><marker id="b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#8A8A8A"/></marker></defs>
+<rect width="960" height="330" rx="18" fill="#141414"/>
+<rect x="24" y="28" width="270" height="274" rx="14" fill="#1B1B1B" stroke="#2A2A2A"/>
+<text x="46" y="62" fill="#F3F3F3" font-size="18" font-weight="600">主机（发送模式）</text>
+<rect x="46" y="84" width="226" height="48" rx="10" fill="#121212" stroke="#333333"/>
+<text x="159" y="109" fill="#E8E8E8" font-size="14.5" text-anchor="middle" dominant-baseline="middle">虚拟显示器（IddCx）</text>
+<path d="M159 134v14" stroke="#555" stroke-width="2" marker-end="url(#b)"/>
+<rect x="46" y="154" width="226" height="48" rx="10" fill="#121212" stroke="#333333"/>
+<text x="159" y="179" fill="#E8E8E8" font-size="14.5" text-anchor="middle" dominant-baseline="middle">Desktop Duplication 采集</text>
+<path d="M159 204v14" stroke="#555" stroke-width="2" marker-end="url(#b)"/>
+<rect x="46" y="224" width="226" height="48" rx="10" fill="#121212" stroke="#FF8A4C"/>
+<text x="159" y="249" fill="#E8E8E8" font-size="14.5" text-anchor="middle" dominant-baseline="middle">PyroWave GPU 编码</text>
+<rect x="666" y="28" width="270" height="274" rx="14" fill="#1B1B1B" stroke="#2A2A2A"/>
+<text x="688" y="62" fill="#F3F3F3" font-size="18" font-weight="600">副机（接收模式）</text>
+<rect x="688" y="84" width="226" height="48" rx="10" fill="#121212" stroke="#FF8A4C"/>
+<text x="801" y="109" fill="#E8E8E8" font-size="14.5" text-anchor="middle" dominant-baseline="middle">PyroWave GPU 解码</text>
+<path d="M801 134v14" stroke="#555" stroke-width="2" marker-end="url(#b)"/>
+<rect x="688" y="154" width="226" height="48" rx="10" fill="#121212" stroke="#333333"/>
+<text x="801" y="179" fill="#E8E8E8" font-size="14.5" text-anchor="middle" dominant-baseline="middle">全屏呈现</text>
+<path d="M801 204v14" stroke="#555" stroke-width="2" marker-end="url(#b)"/>
+<rect x="688" y="224" width="226" height="48" rx="10" fill="#121212" stroke="#333333"/>
+<text x="801" y="249" fill="#E8E8E8" font-size="14.5" text-anchor="middle" dominant-baseline="middle">显示主机的扩展桌面</text>
+<path d="M300 112H660" stroke="#FF8A4C" stroke-width="3" marker-end="url(#a)"/>
+<text x="480" y="100" fill="#F3F3F3" font-size="14.5" text-anchor="middle">视频</text>
+<text x="480" y="134" fill="#A9A9A9" font-size="12.5" text-anchor="middle">UDP 55165 · 可选 AES-256-GCM</text>
+<path d="M300 176H660" stroke="#8A8A8A" stroke-width="2" marker-start="url(#b)" marker-end="url(#b)" style="marker-start:url(#b)"/>
+<text x="480" y="164" fill="#F3F3F3" font-size="14.5" text-anchor="middle">控制与配对</text>
+<text x="480" y="198" fill="#A9A9A9" font-size="12.5" text-anchor="middle">TLS 1.2 · TCP 55166</text>
+<path d="M660 240H300" stroke="#8A8A8A" stroke-width="2" stroke-dasharray="6 6" marker-end="url(#b)"/>
+<text x="480" y="228" fill="#F3F3F3" font-size="14.5" text-anchor="middle">设备发现</text>
+<text x="480" y="262" fill="#A9A9A9" font-size="12.5" text-anchor="middle">UDP 广播 55167</text>
+<text x="480" y="292" fill="#8A8A8A" font-size="12.5" text-anchor="middle">有线局域网（建议千兆）</text>
+</svg>

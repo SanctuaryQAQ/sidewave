@@ -167,7 +167,7 @@ class HostLink:IDisposable {
    string nonce=Convert.ToBase64String(Secrets.Random(32));
    bool pairRequested=!String.IsNullOrWhiteSpace(code);
    wire.Send(new{type="hello",protocol=1,id=settings.DeviceId,nonce=nonce,pair=pairRequested});
-   var challenge=wire.Read();if(Json.S(challenge,"type")!="challenge"||Json.I(challenge,"protocol")!=1)throw new Exception("对方不是兼容的 PyroScreen 客户端。");
+   var challenge=wire.Read();if(Json.S(challenge,"type")!="challenge"||Json.I(challenge,"protocol")!=1)throw new Exception("对方不是兼容的 SideWave 客户端。");
    PeerId=Json.S(challenge,"id");Guid id;if(!Guid.TryParse(PeerId,out id))throw new Exception("设备身份无效。");
    byte[] key=settings.Token(PeerId);
    if(key!=null&&!String.IsNullOrEmpty(settings.LastPin)&&PeerId==settings.LastId&&!Secrets.Equal(wire.Pin,settings.LastPin))throw new Exception("设备证书已改变。请忘记旧配对后重新确认副机。");

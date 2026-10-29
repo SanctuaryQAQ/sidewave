@@ -33,7 +33,7 @@ function Save-PackageArtifact([string]$Path){
   Copy-Item -LiteralPath $inputFile -Destination $out -Force
  }
  Copy-Item -LiteralPath (Join-Path $bin 'driver') -Destination $out -Recurse -Force
- Copy-Item (Join-Path $root 'README.md'),(Join-Path $root 'LICENSE') $out -Force
+ Copy-Item (Join-Path $root 'README.md'),(Join-Path $root 'README.zh-CN.md'),(Join-Path $root 'LICENSE') $out -Force
  Copy-Item -LiteralPath (Join-Path $root 'docs') -Destination $out -Recurse -Force
  Copy-Item -LiteralPath (Join-Path $root 'third_party\licenses') -Destination $out -Recurse -Force
  $hashes=Get-ChildItem $out -Recurse -File|Where-Object {$_.Name -ne 'SHA256SUMS.txt'}|ForEach-Object {
@@ -63,7 +63,7 @@ foreach($f in @('analyze_windows.py','build_app.ps1','build_native.ps1','find_cm
 foreach($f in @('StatusProbe.cs','DiscoveryTests.cs','PrimaryDisplayProbe.cs','ProtocolTests.cs','TwoMachineTests.cs','crypto_test.cpp','rio_crypto_transport_test.cpp','build_tests.ps1','PairCodeProbe.cs','GuiProbe.cs','GuiActions.cs','HostCursorProbe.cs','ClientCursorProbe.cs','DesktopGpuDocument.cpp')){Copy-Item -LiteralPath (Join-Path $root "tests\$f") -Destination (Join-Path $source 'tests') -Force}
 foreach($f in @('measure_constant_cadence.ps1','analyze_constant_cadence.py','validate_full_chain_hud.ps1','measure_165_frame_drops.ps1','analyze_165_frame_drops.py','frame_datagram_schedule_test.cpp','datagram_slot_pool_test.cpp','datagram_sender_loopback_test.cpp','decoder_sequence_regression_test.cpp','verify_frame_schedule.ps1','ReconnectLeaseTests.cs','verify_reconnect_lease.ps1')){Copy-Item -LiteralPath (Join-Path $root "tests\$f") -Destination (Join-Path $source 'tests') -Force}
 Copy-Item -LiteralPath (Join-Path $root 'third_party\licenses') -Destination (Join-Path $source 'third_party') -Recurse -Force
-Copy-Item (Join-Path $root 'README.md'),(Join-Path $root 'LICENSE'),(Join-Path $root '.gitignore'),(Join-Path $root 'CMakeLists.txt'),(Join-Path $root 'build.ps1') $source -Force
+Copy-Item (Join-Path $root 'README.md'),(Join-Path $root 'README.zh-CN.md'),(Join-Path $root 'LICENSE'),(Join-Path $root '.gitignore'),(Join-Path $root 'CMakeLists.txt'),(Join-Path $root 'build.ps1') $source -Force
 $sourceHashes=Get-ChildItem $source -Recurse -File|Where-Object {$_.Name -ne 'SHA256SUMS.txt'}|ForEach-Object {
  "$((Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant())  $($_.FullName.Substring($source.Length+1))"
 }

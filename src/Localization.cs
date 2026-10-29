@@ -11,7 +11,10 @@ namespace PyroScreen {
 static class Language {
  public static string Code="zh";
  public static void Load(){
-  try{Code=Json.S(Json.Read(File.ReadAllText(Path.Combine(Paths.Root,"ui.json"))),"language","zh")=="en"?"en":"zh";}catch{Code="zh";}
+  // Without a saved choice the UI follows the Windows display language.
+  string system=System.Globalization.CultureInfo.CurrentUICulture.TwoLetterISOLanguageName=="zh"?"zh":"en";
+  string file=Path.Combine(Paths.Root,"ui.json");
+  try{Code=File.Exists(file)?(Json.S(Json.Read(File.ReadAllText(file)),"language",system)=="en"?"en":"zh"):system;}catch{Code=system;}
  }
  public static void Select(string code){
   string next=code=="en"?"en":"zh";
@@ -52,6 +55,8 @@ static class Language {
   {"画面恢复失败，稍后重试：","Video recovery failed; retrying shortly: "},
   {"副机视频组件已退出，点击应用可重试：","Receiver video component exited. Click Apply to retry: "},
   {"低延迟显示（允许撕裂）","Low latency display (allow tearing)"},
+  {"副机硬件光标（实验）","Receiver hardware cursor (experimental)"},
+  {"主机鼠标位置和形状单独发送，副机用自己的系统硬件光标显示，不再等待视频编码和解码；画面里不再合成主机光标。副机切到其他程序时不移动其鼠标。需要副机也升级。点应用后生效。","Sends the sender's pointer position and shape separately so the receiver draws it with its own hardware cursor, without waiting for video encode and decode; the pointer is no longer composited into the video. The receiver's mouse is not moved while another app is in front. The receiver must also be updated. Takes effect after Apply."},
   {"只传输变化区域（降低延迟）","Send changed regions only (lower latency)"},
   {"桌面只有局部变化时只编码并发送变化区域，减少传输时间和带宽；全屏运动时自动发送整帧。需要副机也升级到支持此功能的版本。点应用后生效。","When only part of the desktop changes, encode and send just that region to cut transfer time and bandwidth; full-screen motion still sends whole frames. The receiver must also be updated. Takes effect after Apply."},
   {"变化区域传输设置已更改，点击“应用画面设置”生效。","Changed-region setting updated. Click Apply display settings."},
@@ -65,7 +70,7 @@ static class Language {
   {"发送模式","Send"},{"接收模式","Receive"},
   {"可用副机","Available receivers"},{"刷新","Refresh"},{"搜索中…","Searching…"},
   {"暂无设备","No devices found"},{"副机需处于接收模式，并已允许专用网络。","The receiver must be in Receive mode with the private network allowed."},{"传输选项","Transport options"},
-  {"IP 地址","IP address"},{"副机IP地址","Receiver IP address"},{"首次连接的配对码","Pairing code for first connection"},
+  {"IP 地址","IP address"},{"副机IP地址","Receiver IP address"},{"首次连接的配对码","Pairing code for first connection"},{"配对码（首次连接）","Pairing code (first time)"},
   {"配对码","Pairing code"},{"也可以从设备列表选择","Or select a device from the list"},
   {"输入副机显示的配对码；已配对设备留空","Enter the receiver's code; leave blank for a paired device"},
   {"连接副机","Connect"},{"断开","Disconnect"},{"画面设置","Display settings"},
@@ -92,7 +97,7 @@ static class Language {
   {"TLS 1.2 控制 · AES-256-GCM 视频","TLS 1.2 control · AES-256-GCM video"},
   {"正在打开诊断文件夹…","Opening diagnostics…"},
   {"删除已配对设备，下一次连接需要重新输入配对码。","Remove saved pairings? The next connection will require a pairing code."},
-  {"配对已删除","Pairings removed"},{"软件继续在托盘运行。使用“退出”结束副屏。","PyroScreen is still running in the tray. Choose Exit to stop it."},
+  {"配对已删除","Pairings removed"},{"软件继续在托盘运行。使用“退出”结束副屏。","SideWave is still running in the tray. Choose Exit to stop it."},
   {"配对码已复制。","Pairing code copied."},{"配对码已刷新，10 分钟内有效。","New pairing code generated; valid for 10 minutes."},
   {"已开启随 Windows 启动，使用上次模式。","Windows startup enabled, using the last mode."},{"已关闭随 Windows 启动。","Windows startup disabled."},
   {"无法修改自启动：","Could not change Windows startup: "},
@@ -111,7 +116,7 @@ static class Language {
   {"配置完成。","Setup completed."},{"配置未完成，请查看诊断。","Setup did not complete. Check diagnostics."},{"配置未启动：","Could not start setup: "},
   {"正在切换到接收模式…","Switching to Receive mode…"},{"正在切换到发送模式…","Switching to Send mode…"},
   {"切换模式失败","Mode switch failed"},{"不支持的虚拟屏驱动。","Unsupported virtual display driver."},
-  {"PyroScreen 已在运行：","PyroScreen is already running: "},{"PyroScreen 启动失败","PyroScreen startup failed"},
+  {"SideWave 已在运行：","SideWave is already running: "},{"SideWave 启动失败","SideWave startup failed"},
   {"等待局域网主机连接","Waiting for a LAN sender"},{"连接已结束：","Connection ended: "},
   {"协议版本不匹配。","Protocol version mismatch."},{"设备身份无效。","Invalid device identity."},
   {"配对码已过期，请刷新客户端配对码。","Pairing code expired. Generate a new code on the receiver."},
@@ -123,7 +128,7 @@ static class Language {
   {"等待主机 · 上次会话已释放","Waiting for a sender · Previous session released"},
   {"请输入有效的 IPv4 地址。","Enter a valid IPv4 address."},
   {"连接超时，请检查副机软件与专用网络防火墙。","Connection timed out. Check the receiver and Private network firewall."},
-  {"对方不是兼容的 PyroScreen 客户端。","The remote device is not a compatible PyroScreen receiver."},
+  {"对方不是兼容的 SideWave 客户端。","The remote device is not a compatible SideWave receiver."},
   {"设备证书已改变。请忘记旧配对后重新确认副机。","The device certificate changed. Forget its old pairing and pair again."},
   {"配对码错误或设备身份不匹配。","Incorrect pairing code or mismatched device identity."},{"配对失败。","Pairing failed."},
   {"已连接 ","Connected to "},{"请先连接副机。","Connect to a receiver first."},{"画面设置已是当前值。","These display settings are already active."},
@@ -147,8 +152,8 @@ static class Language {
   {"等待虚拟屏驱动超时。","Virtual display driver timed out."},{"虚拟屏模式不可用","Virtual display mode unavailable"},
   {"请安装驱动或选择驱动支持的模式。","Install the driver or choose a supported resolution and refresh rate."},
   {"。请打开诊断查看 setup.log。",". Open diagnostics and check setup.log."},{"配置失败，退出码 ","Setup failed, exit code "},
-  {"已允许 PyroScreen 在 Windows 专用网络中连接本地子网。\n请确认两台电脑的网络类型为“专用”。","PyroScreen can now connect within the local subnet on Windows Private networks.\nSet both computers' network profiles to Private."},
-  {"已安装已签名的虚拟显示驱动。\n连接时才创建 PyroScreen 副屏，退出时释放。","The signed virtual display driver is installed.\nPyroScreen creates its display on connection and releases it on exit."},
+  {"已允许 SideWave 在 Windows 专用网络中连接本地子网。\n请确认两台电脑的网络类型为“专用”。","SideWave can now connect within the local subnet on Windows Private networks.\nSet both computers' network profiles to Private."},
+  {"已安装已签名的虚拟显示驱动。\n连接时才创建 SideWave 副屏，退出时释放。","The signed virtual display driver is installed.\nSideWave creates its display on connection and releases it on exit."},
   {"网络配置失败","Network setup failed"},{"驱动安装失败","Driver installation failed"},
   {"语言已切换为中文。","Language changed to Chinese."},{"语言已切换为英文。","Language changed to English."},
   {"无法保存语言设置：","Could not save the language preference: "},
@@ -166,7 +171,7 @@ static class Language {
  }
  static void Capture(DependencyObject root,List<Action> actions){
   var element=root as FrameworkElement;
-  bool dynamic=element!=null&&new[]{"Heading","Status","Telemetry","ClientAddresses","ClientSpecs","BandwidthNote","Connect","Disconnect","Apply","Scan","LanguageChoice"}.Contains(element.Name);
+  bool dynamic=element!=null&&new[]{"Heading","Version","Status","Telemetry","ClientAddresses","ClientSpecs","BandwidthNote","Connect","Disconnect","Apply","Scan","LanguageChoice"}.Contains(element.Name);
   if(element!=null){
    string tip=element.ToolTip as string;if(tip!=null)actions.Add(()=>element.ToolTip=Tr(tip));
    string name=AutomationProperties.GetName(element);if(!String.IsNullOrEmpty(name))actions.Add(()=>AutomationProperties.SetName(element,Tr(name)));

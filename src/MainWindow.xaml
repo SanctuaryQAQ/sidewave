@@ -34,6 +34,11 @@
   <Style x:Key="Section" TargetType="TextBlock"><Setter Property="FontSize" Value="16"/><Setter Property="FontWeight" Value="SemiBold"/></Style>
   <Style x:Key="Label" TargetType="TextBlock"><Setter Property="FontSize" Value="12.5"/><Setter Property="Foreground" Value="{StaticResource TextDim}"/></Style>
   <Style x:Key="Hint" TargetType="TextBlock"><Setter Property="FontSize" Value="12.5"/><Setter Property="Foreground" Value="{StaticResource TextFaint}"/><Setter Property="TextWrapping" Value="Wrap"/></Style>
+  <!-- 只在有内容时占位：没有警告或遥测时整行隐藏 -->
+  <Style x:Key="Notice" TargetType="TextBlock" BasedOn="{StaticResource Hint}">
+   <Setter Property="Foreground" Value="#FFB37E"/>
+   <Style.Triggers><Trigger Property="Text" Value=""><Setter Property="Visibility" Value="Collapsed"/></Trigger></Style.Triggers>
+  </Style>
   <Style x:Key="CardPanel" TargetType="Border">
    <Setter Property="Background" Value="{StaticResource Card}"/><Setter Property="BorderBrush" Value="{StaticResource CardBorder}"/>
    <Setter Property="BorderThickness" Value="1"/><Setter Property="CornerRadius" Value="14"/><Setter Property="Padding" Value="22"/>
@@ -283,7 +288,6 @@
    <Image Name="RoleIcon" Width="40" Height="40" Margin="0,0,14,0" DockPanel.Dock="Left"/>
    <StackPanel VerticalAlignment="Center">
     <TextBlock Name="Heading" Text="SideWave" FontSize="20" FontWeight="SemiBold"/>
-    <TextBlock Name="Version" Text="0.1 Preview" FontSize="12.5" Foreground="{StaticResource TextDim}" Margin="0,1,0,0"/>
    </StackPanel>
   </DockPanel>
 
@@ -361,14 +365,14 @@
          </ComboBox>
         </StackPanel>
         <StackPanel Grid.Column="2">
-         <TextBlock Text="画质 / 带宽预算" Style="{StaticResource Label}"/>
+         <TextBlock Text="画质" Style="{StaticResource Label}"/>
          <ComboBox Name="Quality">
           <ComboBoxItem Content="均衡 · 400 Mbps"/><ComboBoxItem Content="清晰 · 600 Mbps"/>
           <ComboBoxItem Content="高画质 · 750 Mbps"/><ComboBoxItem Content="极高画质 · 900 Mbps"/>
          </ComboBox>
         </StackPanel>
        </Grid>
-       <TextBlock Name="BandwidthNote" Text="按所选帧率持续发送；屏幕实际刷新由硬件决定。" Style="{StaticResource Hint}" Margin="0,8,0,0"/>
+       <TextBlock Name="BandwidthNote" Text="" Style="{StaticResource Notice}" Margin="0,10,0,0"/>
        <Button Name="Apply" AutomationProperties.Name="应用画面设置" Content="应用画面设置" Style="{StaticResource PrimaryButton}" Padding="18,10" Margin="0,14,0,0" IsEnabled="False"
         ToolTip="切换参数保留控制连接，画面会短暂停顿。&#10;静止画面也持续发送；实际刷新受屏幕硬件限制。"/>
        <TextBlock Text="传输选项" Style="{StaticResource Label}" Margin="0,20,0,8"/>
@@ -378,7 +382,7 @@
          <Border Height="1" Background="{StaticResource Hairline}"/>
          <CheckBox Name="AllowTearing" Content="低延迟显示（允许撕裂）" Margin="14,9" ToolTip="减少呈现等待；可能出现画面撕裂。LAT 使用系统显示采样，包含渲染和显示等待；不包含面板响应。点应用后生效。"/>
          <Border Height="1" Background="{StaticResource Hairline}"/>
-         <CheckBox Name="PartialFrames" Content="只传输变化区域（降低延迟）" Margin="14,9" ToolTip="桌面只有局部变化时只编码并发送变化区域，减少传输时间和带宽；全屏运动时自动发送整帧。需要副机也升级到支持此功能的版本。点应用后生效。"/>
+         <CheckBox Name="PartialFrames" Content="只传输变化区域" Margin="14,9" ToolTip="桌面只有局部变化时只编码并发送变化区域，减少传输时间和带宽；全屏运动时自动发送整帧。需要副机也升级到支持此功能的版本。点应用后生效。"/>
          <Border Height="1" Background="{StaticResource Hairline}"/>
          <CheckBox Name="ClientCursor" Content="副机硬件光标（实验）" Margin="14,9" ToolTip="主机鼠标位置和形状单独发送，副机用自己的系统硬件光标显示，不再等待视频编码和解码；画面里不再合成主机光标。副机切到其他程序时不移动其鼠标。需要副机也升级。点应用后生效。"/>
          <Border Height="1" Background="{StaticResource Hairline}"/>
@@ -398,12 +402,6 @@
       <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
        <Button Name="CopyCode" Content="复制配对码" Style="{StaticResource PrimaryButton}"/><Button Name="RenewCode" Content="刷新配对码"/>
       </StackPanel>
-      <Border Height="1" Background="{StaticResource Hairline}" Margin="0,24,0,18"/>
-      <Border HorizontalAlignment="Left" Background="{StaticResource Inset}" BorderBrush="{StaticResource InsetBorder}" BorderThickness="1" CornerRadius="8" Padding="12,7">
-       <TextBlock Name="ClientSpecs" Foreground="#D6D6D6" FontSize="13"/>
-      </Border>
-      <TextBlock Text="配对后等待主机连接，即可显示真实扩展桌面。&#10;主机停止或断开后返回本机桌面。窗口关闭后仍在托盘等待。&#10;本机鼠标默认隐藏，移动后显示，两秒静止后隐藏。"
-       Foreground="{StaticResource TextDim}" FontSize="13" LineHeight="22" TextWrapping="Wrap" Margin="0,16,0,0"/>
      </StackPanel>
     </Border>
    </Grid>
@@ -414,7 +412,10 @@
    <Border Background="{StaticResource Card}" BorderBrush="{StaticResource CardBorder}" BorderThickness="1" CornerRadius="10" Padding="16,11">
     <DockPanel>
      <Border DockPanel.Dock="Right" Background="{StaticResource Inset}" BorderBrush="{StaticResource InsetBorder}" BorderThickness="1" CornerRadius="7" Padding="11,4" Margin="16,0,0,0" VerticalAlignment="Center">
-      <TextBlock Name="Telemetry" Text="FPS --  ·  延迟 -- ms" Foreground="#D6D6D6" FontSize="12.5" VerticalAlignment="Center"/>
+      <Border.Style><Style TargetType="Border"><Style.Triggers>
+       <DataTrigger Binding="{Binding Text,ElementName=Telemetry}" Value=""><Setter Property="Visibility" Value="Collapsed"/></DataTrigger>
+      </Style.Triggers></Style></Border.Style>
+      <TextBlock Name="Telemetry" Text="" Foreground="#D6D6D6" FontSize="12.5" VerticalAlignment="Center"/>
      </Border>
      <TextBlock Name="Status" Text="正在初始化…" TextWrapping="Wrap" Foreground="#F0F0F0" VerticalAlignment="Center"/>
     </DockPanel>
@@ -428,7 +429,7 @@
      <Border Width="1" Height="18" Background="{StaticResource Hairline}" Margin="6,0,8,0"/>
      <Button Name="Exit" Content="退出" Style="{StaticResource DangerQuietButton}" Margin="0"/>
     </StackPanel>
-    <CheckBox Name="Startup" Content="随 Windows 启动（使用上次模式）" HorizontalAlignment="Left" VerticalAlignment="Center"/>
+    <CheckBox Name="Startup" Content="随 Windows 启动" HorizontalAlignment="Left" VerticalAlignment="Center"/>
    </DockPanel>
   </StackPanel>
  </Grid>

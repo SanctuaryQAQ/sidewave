@@ -53,7 +53,7 @@ Paired devices reconnect without a code. Closing the window keeps SideWave in th
 
 | Option | What it does | Default |
 | --- | --- | --- |
-| Quality / bandwidth budget | Encoded-data budget of 400 / 600 / 750 / 900 Mbps; capped to 90% of the slower network adapter | 600 Mbps |
+| Quality | Encoded-data budget of 400 / 600 / 750 / 900 Mbps; capped to 90% of the slower network adapter | 600 Mbps |
 | Video encryption | AES-256-GCM for video packets; off sends plaintext UDP with less overhead | Off |
 | Low latency display | Presents without waiting for vertical sync; tearing is possible | Off |
 | Send changed regions only | Encodes only the part of the desktop that changed; full-screen motion still sends whole frames | Off |

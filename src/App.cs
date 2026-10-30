@@ -34,7 +34,7 @@ class App {
  NetworkAddressChangedEventHandler networkChanged;long networkChangeAt;int poorNetworkSamples,networkVideoRecoveries;
  readonly VideoRecovery senderRecovery=new VideoRecovery();int senderVideoRecoveries;
  NamedPipeServerStream activation;
- List<Action> translations;bool changingLanguage;string clientAddressText="",clientSpecsText="";
+ List<Action> translations;bool changingLanguage;string clientAddressText="";
  static readonly int[] Budgets={400,600,750,900};
  static readonly int[,] Resolutions={{0,0},{1280,720},{1600,900},{1920,1080},{2048,1152},{2560,1440},{3200,1800},{3840,2160}};
  volatile string telemetryJson="{}";long telemetryTime;
@@ -48,7 +48,6 @@ class App {
   using(var source=File.OpenRead(Path.Combine(Paths.Bin,"MainWindow.xaml")))window=(Window)XamlReader.Load(source);
   window.Title="SideWave · "+Language.Tr(client?"接收模式":"发送模式");
   window.SourceInitialized+=(s,e)=>DarkCaption(new WindowInteropHelper(window).Handle);
-  C<TextBlock>("Version").Text=Language.Tr(client?"接收模式":"发送模式")+" · 0.1 Preview";
   string image=Path.Combine(Paths.Bin,client?"client.png":"host.png");
   C<Image>("RoleIcon").Source=(System.Windows.Media.ImageSource)window.FindResource("IconApp");
   window.Icon=(System.Windows.Media.ImageSource)window.FindResource("IconApp");
@@ -191,11 +190,10 @@ class App {
  void InitClient(){
   C<Grid>("HostPanel").Visibility=Visibility.Collapsed;C<Border>("ClientPanel").Visibility=Visibility.Visible;
   C<Button>("Driver").Visibility=Visibility.Collapsed;
-  C<TextBlock>("Telemetry").Text=Language.Tr("TLS 控制 · UDP 视频（加密可选）");
+  C<TextBlock>("Telemetry").Text="";
   clientAddressText="本机地址："+String.Join(" · ",NetworkInterface.GetAllNetworkInterfaces()
    .Where(n=>n.OperationalStatus==OperationalStatus.Up).SelectMany(n=>n.GetIPProperties().UnicastAddresses)
    .Where(a=>a.Address.AddressFamily==AddressFamily.InterNetwork&&!System.Net.IPAddress.IsLoopback(a.Address)).Select(a=>a.Address.ToString()));
-  clientSpecsText="原生 "+ScreenInfo.Width()+" × "+ScreenInfo.Height()+" · "+ScreenInfo.Hz()+" Hz · SDR";
   server=new ClientService(settings);server.Status+=SetStatus;
   Action showCode=()=>{string code=server.Code;C<TextBox>("ClientCode").Text=String.Join(" - ",Enumerable.Range(0,4).Select(i=>code.Substring(i*4,4)));};
   showCode();
@@ -215,10 +213,9 @@ class App {
  void RefreshLanguage(){
   foreach(var translate in translations)translate();
   window.Title="SideWave · "+Language.Tr(client?"接收模式":"发送模式");
-  C<TextBlock>("Version").Text=Language.Tr(client?"接收模式":"发送模式")+" · 0.1 Preview";
   tray.Text="SideWave "+Language.Tr(client?"接收模式":"发送模式");
   tray.ContextMenuStrip.Items[0].Text=Language.Tr("打开");tray.ContextMenuStrip.Items[1].Text=Language.Tr("退出");
-  if(client){C<TextBlock>("ClientAddresses").Text=Language.Tr(clientAddressText);C<TextBlock>("ClientSpecs").Text=Language.Tr(clientSpecsText);C<TextBlock>("Telemetry").Text=Language.Tr("TLS 控制 · UDP 视频（加密可选）");}
+  if(client){C<TextBlock>("ClientAddresses").Text=Language.Tr(clientAddressText);}
   else{Buttons();C<Button>("Scan").Content=Language.Tr(C<Button>("Scan").IsEnabled?"刷新":"搜索中…");}
   C<TextBlock>("Status").Text=Language.Tr(lastStatus);
  }
@@ -332,19 +329,19 @@ class App {
    try{link.Apply(oldW,oldH,oldF,oldB);}catch(Exception restore){SetStatus("恢复失败："+restore.Message);}
   }finally{if(link.ReceiverPid!=oldPid)ClearTelemetry();busy=false;Buttons();}
  }
- void ClearTelemetry(){telemetryJson="{}";Interlocked.Exchange(ref telemetryTime,0);UI(()=>C<TextBlock>("Telemetry").Text=Language.Tr("FPS -- · 延迟 -- ms"));}
+ void ClearTelemetry(){telemetryJson="{}";Interlocked.Exchange(ref telemetryTime,0);UI(()=>C<TextBlock>("Telemetry").Text="");}
  void BeginOperation(string action,string status){if(action=="connect")ClearTelemetry();busyAction=action;busy=true;SetStatus(status);Buttons();}
  void Buttons(){UI(()=>{
   C<Button>("Connect").IsEnabled=!busy&&!link.Connected;C<Button>("Disconnect").IsEnabled=!busy&&(link.Connected||link.HasDisplay);
   C<Button>("Apply").IsEnabled=!busy&&link.Connected;
   bool slowLink=link.Connected&&((link.LocalLinkMbps>0&&link.LocalLinkMbps<1000)||(link.RemoteLinkMbps>0&&link.RemoteLinkMbps<1000));
-  C<TextBlock>("BandwidthNote").Text=Language.Tr((link.Connected&&link.EffectiveFps>0?"目标 "+link.EffectiveFps+" FPS · 线路预算 "+link.LinkBudgetMbps+" Mbps":"按所选帧率持续发送；屏幕实际刷新由硬件决定。")+(slowLink?"\n网卡连接低于千兆（本机 "+link.LocalLinkMbps+" / 副机 "+link.RemoteLinkMbps+" Mbps），帧率和画质会受限。请检查网线后重新连接。":""));
+  C<TextBlock>("BandwidthNote").Text=Language.Tr((slowLink?"网卡连接低于千兆（本机 "+link.LocalLinkMbps+" / 副机 "+link.RemoteLinkMbps+" Mbps），帧率和画质会受限。请检查网线后重新连接。":""));
   C<Button>("Connect").Content=Language.Tr(busy&&busyAction=="connect"?"正在连接…":"连接副机");
   C<Button>("Disconnect").Content=Language.Tr(busy&&busyAction=="disconnect"?"正在断开…":"断开");
   C<Button>("Apply").Content=Language.Tr(busy&&busyAction=="apply"?"正在应用…":"应用画面设置");
   C<ComboBox>("Resolution").IsEnabled=!busy;C<ComboBox>("FrameRate").IsEnabled=!busy;C<ComboBox>("Quality").IsEnabled=!busy;
   C<CheckBox>("VideoEncryption").IsEnabled=!busy;C<CheckBox>("PacketProtection").IsEnabled=!busy;C<CheckBox>("AllowTearing").IsEnabled=!busy;C<CheckBox>("PartialFrames").IsEnabled=!busy;C<CheckBox>("ClientCursor").IsEnabled=!busy;
-  if(!link.Connected)C<TextBlock>("Telemetry").Text=Language.Tr("FPS -- · 延迟 -- ms");
+  if(!link.Connected)C<TextBlock>("Telemetry").Text="";
  });}
  void ScheduleRetry(){nextRetry=DateTime.UtcNow.AddSeconds(retrySeconds);retrySeconds=Math.Min(30,retrySeconds*2);}
  static double Number(Dictionary<string,object> data,string key){double value;return data!=null&&Double.TryParse(Json.S(data,key,"0"),System.Globalization.NumberStyles.Float,System.Globalization.CultureInfo.InvariantCulture,out value)?value:0;}

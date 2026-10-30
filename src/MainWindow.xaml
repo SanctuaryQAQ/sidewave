@@ -1,9 +1,9 @@
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
  Title="SideWave" Width="1060" Height="880" MinWidth="1000" MinHeight="640"
- Background="#141414" Foreground="#F3F3F3" FontFamily="MiSans, Noto Sans SC, Microsoft YaHei UI, Segoe UI" FontSize="14"
+ Background="#141414" Foreground="#F3F3F3" FontFamily="Segoe UI Variable Text, Segoe UI, Microsoft YaHei UI" FontSize="14"
  UseLayoutRounding="True" SnapsToDevicePixels="True" ToolTipService.ShowDuration="30000"
- TextOptions.TextFormattingMode="Ideal" TextOptions.TextRenderingMode="Grayscale" TextOptions.TextHintingMode="Auto"
+ TextOptions.TextFormattingMode="Display" TextOptions.TextRenderingMode="Auto" TextOptions.TextHintingMode="Auto"
  WindowStartupLocation="CenterScreen">
  <Window.Resources>
   <!-- 设计令牌：近黑底 + 深灰卡片 + 单一暖橙强调色（想换主题色只改 Accent / AccentText / AccentTint） -->
@@ -34,6 +34,8 @@
   <Style x:Key="Section" TargetType="TextBlock"><Setter Property="FontSize" Value="16"/><Setter Property="FontWeight" Value="SemiBold"/></Style>
   <Style x:Key="Label" TargetType="TextBlock"><Setter Property="FontSize" Value="12.5"/><Setter Property="Foreground" Value="{StaticResource TextDim}"/></Style>
   <Style x:Key="Hint" TargetType="TextBlock"><Setter Property="FontSize" Value="12.5"/><Setter Property="Foreground" Value="{StaticResource TextFaint}"/><Setter Property="TextWrapping" Value="Wrap"/></Style>
+  <!-- 选项行：主标签略柔和，次要信息用浅灰小字跟在后面 -->
+  <Style x:Key="OptionNote" TargetType="TextBlock"><Setter Property="FontSize" Value="12"/><Setter Property="Foreground" Value="{StaticResource TextFaint}"/><Setter Property="Margin" Value="8,1,0,0"/><Setter Property="VerticalAlignment" Value="Center"/></Style>
   <!-- 只在有内容时占位：没有警告或遥测时整行隐藏 -->
   <Style x:Key="Notice" TargetType="TextBlock" BasedOn="{StaticResource Hint}">
    <Setter Property="Foreground" Value="#FFB37E"/>
@@ -267,6 +269,9 @@
     </ControlTemplate.Triggers>
    </ControlTemplate></Setter.Value></Setter>
   </Style>
+  <Style x:Key="OptionRow" TargetType="CheckBox" BasedOn="{StaticResource {x:Type CheckBox}}">
+   <Setter Property="Margin" Value="14,10"/><Setter Property="Foreground" Value="#E4E4E4"/>
+  </Style>
  </Window.Resources>
 
  <Grid Margin="32,26,32,24">
@@ -378,15 +383,27 @@
        <TextBlock Text="传输选项" Style="{StaticResource Label}" Margin="0,20,0,8"/>
        <Border Background="{StaticResource Inset}" BorderBrush="{StaticResource InsetBorder}" BorderThickness="1" CornerRadius="10">
         <StackPanel>
-         <CheckBox Name="VideoEncryption" Content="视频加密" Margin="14,9" ToolTip="关闭后使用明文 UDP 视频，减少逐包加解密开销；点应用后生效。"/>
+         <CheckBox Name="VideoEncryption" Style="{StaticResource OptionRow}" ToolTip="关闭后使用明文 UDP 视频，减少逐包加解密开销；点应用后生效。">
+          <TextBlock Text="视频加密"/>
+         </CheckBox>
          <Border Height="1" Background="{StaticResource Hairline}"/>
-         <CheckBox Name="AllowTearing" Content="低延迟显示（允许撕裂）" Margin="14,9" ToolTip="减少呈现等待；可能出现画面撕裂。LAT 使用系统显示采样，包含渲染和显示等待；不包含面板响应。点应用后生效。"/>
+         <CheckBox Name="AllowTearing" Style="{StaticResource OptionRow}" ToolTip="减少呈现等待；可能出现画面撕裂。LAT 使用系统显示采样，包含渲染和显示等待；不包含面板响应。点应用后生效。">
+          <StackPanel Orientation="Horizontal"><TextBlock Text="低延迟显示"/><TextBlock Text="允许撕裂" Style="{StaticResource OptionNote}"/></StackPanel>
+         </CheckBox>
          <Border Height="1" Background="{StaticResource Hairline}"/>
-         <CheckBox Name="PartialFrames" Content="只传输变化区域" Margin="14,9" ToolTip="桌面只有局部变化时只编码并发送变化区域，减少传输时间和带宽；全屏运动时自动发送整帧。需要副机也升级到支持此功能的版本。点应用后生效。"/>
+         <CheckBox Name="PartialFrames" Style="{StaticResource OptionRow}" ToolTip="桌面只有局部变化时只编码并发送变化区域，减少传输时间和带宽；全屏运动时自动发送整帧。需要副机也升级到支持此功能的版本。点应用后生效。">
+          <TextBlock Text="只传输变化区域"/>
+         </CheckBox>
          <Border Height="1" Background="{StaticResource Hairline}"/>
-         <CheckBox Name="ClientCursor" Content="副机硬件光标（实验）" Margin="14,9" ToolTip="主机鼠标位置和形状单独发送，副机用自己的系统硬件光标显示，不再等待视频编码和解码；画面里不再合成主机光标。副机切到其他程序时不移动其鼠标。需要副机也升级。点应用后生效。"/>
+         <CheckBox Name="ClientCursor" Style="{StaticResource OptionRow}" ToolTip="主机鼠标位置和形状单独发送，副机用自己的系统硬件光标显示，不再等待视频编码和解码；画面里不再合成主机光标。副机切到其他程序时不移动其鼠标。需要副机也升级。点应用后生效。">
+          <StackPanel Orientation="Horizontal"><TextBlock Text="副机硬件光标"/>
+           <Border Background="{StaticResource AccentTint}" CornerRadius="4" Padding="6,1" Margin="8,0,0,0" VerticalAlignment="Center"><TextBlock Text="实验" FontSize="11" Foreground="{StaticResource Accent}"/></Border>
+          </StackPanel>
+         </CheckBox>
          <Border Height="1" Background="{StaticResource Hairline}"/>
-         <CheckBox Name="PacketProtection" Content="丢包保护（FEC）" Margin="14,9" ToolTip="每个视频数据包增加一片校验数据，可恢复一片丢失；点应用后生效。"/>
+         <CheckBox Name="PacketProtection" Style="{StaticResource OptionRow}" ToolTip="每个视频数据包增加一片校验数据，可恢复一片丢失；点应用后生效。">
+          <StackPanel Orientation="Horizontal"><TextBlock Text="丢包保护"/><TextBlock Text="FEC" Style="{StaticResource OptionNote}"/></StackPanel>
+         </CheckBox>
         </StackPanel>
        </Border>
       </StackPanel>

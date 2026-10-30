@@ -46,6 +46,9 @@ class App {
   if(!client&&segmentationOverride.HasValue)settings.UdpSegmentation=segmentationOverride.Value;
   settings.Save(client?"client":"host");
   using(var source=File.OpenRead(Path.Combine(Paths.Bin,"MainWindow.xaml")))window=(Window)XamlReader.Load(source);
+  // Bundled Noto Sans SC (SIL OFL); Segoe UI supplies half-width × and ·, Microsoft YaHei UI covers the rest of the subset gaps.
+  string fonts=Path.Combine(Paths.Bin,"fonts")+Path.DirectorySeparatorChar;
+  if(File.Exists(fonts+"NotoSansSC-Regular.otf"))window.FontFamily=new System.Windows.Media.FontFamily(new Uri(fonts),"./#Noto Sans SC, Segoe UI, Microsoft YaHei UI");
   window.Title="SideWave · "+Language.Tr(client?"接收模式":"发送模式");
   window.SourceInitialized+=(s,e)=>DarkCaption(new WindowInteropHelper(window).Handle);
   string image=Path.Combine(Paths.Bin,client?"client.png":"host.png");

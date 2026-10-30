@@ -33,6 +33,7 @@ function Save-PackageArtifact([string]$Path){
   Copy-Item -LiteralPath $inputFile -Destination $out -Force
  }
  Copy-Item -LiteralPath (Join-Path $bin 'driver') -Destination $out -Recurse -Force
+ Copy-Item -LiteralPath (Join-Path $bin 'fonts') -Destination $out -Recurse -Force
  Copy-Item (Join-Path $root 'README.md'),(Join-Path $root 'README.zh-CN.md'),(Join-Path $root 'LICENSE') $out -Force
  Copy-Item -LiteralPath (Join-Path $root 'docs') -Destination $out -Recurse -Force
  Copy-Item -LiteralPath (Join-Path $root 'third_party\licenses') -Destination $out -Recurse -Force

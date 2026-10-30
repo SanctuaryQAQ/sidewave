@@ -94,4 +94,4 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\build.ps1
 
 ## 许可证
 
-SideWave 采用 [MIT 许可证](LICENSE)。PyroWave、Granite、Vulkan headers、Volk 和虚拟显示驱动保留各自的版权和许可证，见 `third_party` 及发行包中的 `licenses` 目录。虚拟显示驱动使用 VirtualDrivers 官方签名版本，安装时保留 Windows 发布者确认，不会修改根证书、TrustedPublisher 或测试签名设置。
+SideWave 采用 [MIT 许可证](LICENSE)。PyroWave、Granite、Vulkan headers、Volk、内置的思源黑体 Noto Sans SC（SIL OFL 1.1）和虚拟显示驱动保留各自的版权和许可证，见 `third_party` 及发行包中的 `licenses` 目录。虚拟显示驱动使用 VirtualDrivers 官方签名版本，安装时保留 Windows 发布者确认，不会修改根证书、TrustedPublisher 或测试签名设置。

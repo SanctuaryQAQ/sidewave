@@ -94,4 +94,4 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\build.ps1
 
 ## License
 
-SideWave is released under the [MIT License](LICENSE). PyroWave, Granite, Vulkan headers, Volk and the virtual display driver keep their own copyrights and licenses; see `third_party` and the `licenses` folder in the release. The virtual display driver is the officially signed VirtualDrivers build. Its installer keeps the Windows publisher prompt and never changes root certificates, TrustedPublisher or test-signing settings.
+SideWave is released under the [MIT License](LICENSE). PyroWave, Granite, Vulkan headers, Volk, the bundled Noto Sans SC font (SIL OFL 1.1) and the virtual display driver keep their own copyrights and licenses; see `third_party` and the `licenses` folder in the release. The virtual display driver is the officially signed VirtualDrivers build. Its installer keeps the Windows publisher prompt and never changes root certificates, TrustedPublisher or test-signing settings.

@@ -19,5 +19,6 @@ $markup=[IO.File]::OpenRead((Join-Path $root 'src\MainWindow.xaml'))
 try{[Windows.Markup.XamlReader]::Load($markup)|Out-Null}finally{$markup.Dispose()}
 Copy-Item (Join-Path $root 'src\MainWindow.xaml') $output -Force
 Copy-Item (Join-Path $root 'assets\*.png'),(Join-Path $root 'assets\*.ico') $output -Force
+Copy-Item -LiteralPath (Join-Path $root 'assets\fonts') -Destination $output -Recurse -Force
 foreach($name in @('Install-Driver.ps1','Install-Network.ps1','Inspect-System.ps1')){Copy-Item (Join-Path $root ('tools\'+$name)) $output -Force}
 & (Join-Path $PSScriptRoot 'get_presentmon.ps1')

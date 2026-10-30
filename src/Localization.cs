@@ -56,6 +56,7 @@ static class Language {
   {"副机视频组件已退出，点击应用可重试：","Receiver video component exited. Click Apply to retry: "},
   {"低延迟显示（允许撕裂）","Low latency display (allow tearing)"},
   {"副机硬件光标（实验）","Receiver hardware cursor (experimental)"},
+  {"低延迟显示","Low latency display"},{"允许撕裂","allows tearing"},{"副机硬件光标","Receiver hardware cursor"},{"实验","Beta"},{"丢包保护","Packet loss protection"},
   {"主机鼠标位置和形状单独发送，副机用自己的系统硬件光标显示，不再等待视频编码和解码；画面里不再合成主机光标。副机切到其他程序时不移动其鼠标。需要副机也升级。点应用后生效。","Sends the sender's pointer position and shape separately so the receiver draws it with its own hardware cursor, without waiting for video encode and decode; the pointer is no longer composited into the video. The receiver's mouse is not moved while another app is in front. The receiver must also be updated. Takes effect after Apply."},
   {"只传输变化区域","Send changed regions only"},
   {"桌面只有局部变化时只编码并发送变化区域，减少传输时间和带宽；全屏运动时自动发送整帧。需要副机也升级到支持此功能的版本。点应用后生效。","When only part of the desktop changes, encode and send just that region to cut transfer time and bandwidth; full-screen motion still sends whole frames. The receiver must also be updated. Takes effect after Apply."},

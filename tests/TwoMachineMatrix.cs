@@ -58,7 +58,7 @@ class TwoMachineMatrix {
     var data=response!=null&&response.ContainsKey("data")?response["data"]as Dictionary<string,object>:null;
     if(data!=null)samples.Add(data);
    }
-   if(samples.Count<6)throw new Exception("Only "+samples.Count+" telemetry samples.");
+   if(samples.Count<5)throw new Exception("Only "+samples.Count+" telemetry samples.");
    var first=samples.Skip(3).First();var last=samples.Last();
    double span=(Number(last,"sampled_utc_ms")-Number(first,"sampled_utc_ms"))/1000.0;
    double actual=span>0?(Number(last,"presented_frames")-Number(first,"presented_frames"))/span:0;

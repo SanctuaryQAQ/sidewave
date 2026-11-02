@@ -2,7 +2,7 @@ using System;
 using System.IO;
 using System.Reflection;
 using System.Threading;
-namespace PyroScreen {
+namespace SideWave {
 class SenderRecoveryTests {
  static int checks;
  static void Check(bool value,string message){++checks;if(!value)throw new Exception(message);}

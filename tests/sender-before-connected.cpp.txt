@@ -560,10 +560,10 @@ int wmain(int argc, wchar_t **argv)
 	std::vector<double> livePacketizeMs, liveSendMs, liveSourceAgeMs,liveGpuReadbackMs,liveCpuPacketizeMs,livePacingWaitMs;
  uint64_t liveAccumulatedSourceFrames=0;
 	auto liveReportStart = start;
- wchar_t runtimeBuffer[32768]{};DWORD runtimeLength=GetEnvironmentVariableW(L"PYROSCREEN_RUNTIME",runtimeBuffer,32768);
+ wchar_t runtimeBuffer[32768]{};DWORD runtimeLength=GetEnvironmentVariableW(L"SIDEWAVE_RUNTIME",runtimeBuffer,32768);
  std::wstring liveStatsPath;
  if(runtimeLength&&runtimeLength<32768)liveStatsPath=std::wstring(runtimeBuffer)+L"\\sender-live.json";
- else{wchar_t legacy[MAX_PATH]{};DWORD length=GetEnvironmentVariableW(L"LOCALAPPDATA",legacy,MAX_PATH);liveStatsPath=length&&length<MAX_PATH?std::wstring(legacy)+L"\\PyroScreen\\runtime\\sender-live.json":L"sender-live.json";}
+ else{wchar_t legacy[MAX_PATH]{};DWORD length=GetEnvironmentVariableW(L"LOCALAPPDATA",legacy,MAX_PATH);liveStatsPath=length&&length<MAX_PATH?std::wstring(legacy)+L"\\SideWave\\runtime\\sender-live.json":L"sender-live.json";}
 	PyrowaveLiveStatsWriter liveStatsWriter(liveStatsPath);
 	auto writeLiveStats = [&]() {
 		const auto now = Clock::now();

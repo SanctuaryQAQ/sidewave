@@ -99,7 +99,7 @@ public:
         DXGI_ADAPTER_DESC1 adapter{};Check(chosen->GetDesc1(&adapter));adapterName=adapter.Description;adapterLuid=adapter.AdapterLuid;adapterVendor=adapter.VendorId;
         DXGI_SWAP_CHAIN_DESC sc{};sc.BufferDesc.Width=w;sc.BufferDesc.Height=h;
         sc.BufferDesc.Format=DXGI_FORMAT_B8G8R8A8_UNORM;sc.SampleDesc.Count=1;
-#ifdef PYROSCREEN_TEST_RGBA_SWAPCHAIN_DEFAULT
+#ifdef SIDEWAVE_TEST_RGBA_SWAPCHAIN_DEFAULT
         sc.BufferDesc.Format=DXGI_FORMAT_R8G8B8A8_UNORM;
 #endif
         fprintf(stderr,"Swapchain format: %u\n",unsigned(sc.BufferDesc.Format));

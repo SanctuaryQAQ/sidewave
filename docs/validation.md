@@ -8,7 +8,7 @@ driver's Windows publisher confirmation remained pending.
 
 ## Verified behavior
 
-- One PyroScreen.exe with send/receive modes: LAN discovery, manual IPv4, first pairing,
+- One SideWave.exe with send/receive modes: LAN discovery, manual IPv4, first pairing,
   remembered pairing, forgotten-host re-pairing, TLS control and AES-GCM video.
 - Wrong pairing code, changed/tampered encrypted datagram and replay rejection.
 - Actual GUI 120 -> 60 -> 120 mode changes retain one control connection.

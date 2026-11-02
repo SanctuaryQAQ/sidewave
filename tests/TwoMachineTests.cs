@@ -4,7 +4,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading;
-namespace PyroScreen {
+namespace SideWave {
 class TwoMachineTests {
  static void Record(string path,object data){File.AppendAllText(path,Json.Write(data)+"\n");}
  public static int Main(string[] args){

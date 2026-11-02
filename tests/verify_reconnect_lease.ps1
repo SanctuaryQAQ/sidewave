@@ -1,10 +1,10 @@
 $ErrorActionPreference='Stop'
-$root=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'));$folder=Join-Path $root 'results\165-reconnect-lease';$app=Join-Path $root 'dist\PyroScreen\PyroScreen.exe'
+$root=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'));$folder=Join-Path $root 'results\165-reconnect-lease';$app=Join-Path $root 'dist\SideWave\SideWave.exe'
 New-Item -ItemType Directory -Path $folder -Force|Out-Null
 if(Test-Path (Join-Path $folder 'test.error')){Move-Item -LiteralPath (Join-Path $folder 'test.error') -Destination (Join-Path $folder 'test.previous.error') -Force}
 trap{[IO.File]::WriteAllText((Join-Path $folder 'test.error'),($_|Out-String));exit 1}
-$framework=Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319';$arguments=@('/nologo','/target:winexe','/platform:x64','/optimize+','/main:PyroScreen.ReconnectLeaseTests')
-foreach($r in @('System.dll','System.Core.dll','System.Security.dll','System.Web.Extensions.dll','System.Drawing.dll','System.Windows.Forms.dll','Microsoft.CSharp.dll')){$arguments+='/reference:'+(Join-Path $framework $r)}
+$framework=Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319';$arguments=@('/nologo','/target:winexe','/platform:x64','/optimize+','/main:SideWave.ReconnectLeaseTests')
+foreach($r in @('System.dll','System.Core.dll','System.Security.dll','System.Web.Extensions.dll','System.Drawing.dll','System.Windows.Forms.dll','Microsoft.CSharp.dll','System.IO.Compression.dll','System.IO.Compression.FileSystem.dll')){$arguments+='/reference:'+(Join-Path $framework $r)}
 foreach($r in @('PresentationCore','PresentationFramework','WindowsBase','System.Xaml')){$p=Join-Path $framework "WPF\$r.dll";if(-not(Test-Path $p)){$p=Join-Path $framework "$r.dll"};$arguments+='/reference:'+$p}
 $test=Join-Path $root 'build\bin\ReconnectLeaseTests.exe';$sources=@(Get-ChildItem (Join-Path $root 'src') -Filter '*.cs'|Select-Object -ExpandProperty FullName)
 & (Join-Path $framework 'csc.exe') @arguments ('/out:'+$test) @sources (Join-Path $PSScriptRoot 'ReconnectLeaseTests.cs') *> (Join-Path $folder 'build.log');if($LASTEXITCODE -ne 0){throw 'Lease test build failed'}
@@ -14,7 +14,7 @@ try{
  $report=Join-Path $folder 'test.json';Remove-Item -LiteralPath $report -Force -ErrorAction SilentlyContinue
  # The desktop app is outside the tool's filesystem view. Run this read-only
  # credential reuse test in the same real interactive Windows user context.
- $task='PyroScreen-165-LeaseVerification-20261006'
+ $task='SideWave-165-LeaseVerification-20261006'
  if(Get-ScheduledTask -TaskName $task -ErrorAction SilentlyContinue){throw 'Unexpected previous verification task'}
  try{
   Register-ScheduledTask -TaskName $task -Action (New-ScheduledTaskAction -Execute $test -Argument ('"'+$report+'"') -WorkingDirectory (Split-Path $test)) -Principal (New-ScheduledTaskPrincipal -UserId "$env:USERDOMAIN\$env:USERNAME" -LogonType Interactive -RunLevel Highest) -Settings (New-ScheduledTaskSettingsSet -ExecutionTimeLimit (New-TimeSpan -Seconds 30)) -Force|Out-Null

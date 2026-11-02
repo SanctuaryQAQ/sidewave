@@ -3,7 +3,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Threading;
 using System.Windows.Automation;
-namespace PyroScreenTests {
+namespace SideWaveTests {
 class MaintenanceUiTests {
  static int pid;static string output;
  static AutomationElement Find(string id,bool name=false){

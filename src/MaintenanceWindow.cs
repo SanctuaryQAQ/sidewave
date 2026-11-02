@@ -9,7 +9,7 @@ using System.Windows;
 using System.Windows.Controls;
 using Microsoft.Win32;
 
-namespace PyroScreen {
+namespace SideWave {
 static class SystemInspection {
  public static string Script(string name,string app,int timeout){
   string file=Path.Combine(Paths.Bin,name);
@@ -124,6 +124,6 @@ class MaintenanceWindow {
   return System.Text.RegularExpressions.Regex.Replace(text,@"\b"+System.Text.RegularExpressions.Regex.Escape(Environment.MachineName)+@"\b","<computer>",System.Text.RegularExpressions.RegexOptions.IgnoreCase);
  }
  void Open(string path){Process.Start(new ProcessStartInfo(path){UseShellExecute=true});}
- void Save(){var picker=new SaveFileDialog{FileName="PyroScreen-diagnostics-"+DateTime.Now.ToString("yyyyMMdd-HHmmss")+".txt",Filter="Text (*.txt)|*.txt"};if(picker.ShowDialog(dialog)==true){File.WriteAllText(picker.FileName,Redact(report.Text),new UTF8Encoding(false));feedback.Text=T("报告已保存：")+picker.FileName;}}
+ void Save(){var picker=new SaveFileDialog{FileName="SideWave-diagnostics-"+DateTime.Now.ToString("yyyyMMdd-HHmmss")+".txt",Filter="Text (*.txt)|*.txt"};if(picker.ShowDialog(dialog)==true){File.WriteAllText(picker.FileName,Redact(report.Text),new UTF8Encoding(false));feedback.Text=T("报告已保存：")+picker.FileName;}}
 }
 }

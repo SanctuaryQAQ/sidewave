@@ -1,5 +1,5 @@
 $ErrorActionPreference='Stop'
-$root=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'));$results=Join-Path $root 'results';$app=Join-Path $root 'dist\PyroScreen\PyroScreen.exe'
+$root=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'));$results=Join-Path $root 'results';$app=Join-Path $root 'dist\SideWave\SideWave.exe'
 trap{[IO.File]::WriteAllText((Join-Path $results 'full-chain-validation.error'),($_|Out-String));exit 1}
 function Api($commandLine,$name){
  $file=Join-Path $results ($name+'.json');Remove-Item -LiteralPath $file -Force -ErrorAction SilentlyContinue

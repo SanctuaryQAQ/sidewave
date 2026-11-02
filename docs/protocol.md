@@ -23,7 +23,7 @@ timeouts and pairing retry delays.
 On first pair the client displays a random 80-bit Base32 code. Both ends hash
 the code into the temporary authentication key. The authenticated transcript is:
 
-    PyroScreen|1|hostID|clientID|hostNonce|clientNonce|actualCertificateSHA256
+    SideWave|1|hostID|clientID|hostNonce|clientNonce|actualCertificateSHA256
 
 The client proves HMAC(key, "server|" + transcript) and the host proves
 HMAC(key, "host|" + transcript). The certificate is the TLS peer certificate;

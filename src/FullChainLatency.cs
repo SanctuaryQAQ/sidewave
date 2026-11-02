@@ -9,13 +9,13 @@ using System.Security.Principal;
 using System.Security.Cryptography;
 using System.Threading;
 
-namespace PyroScreen {
+namespace SideWave {
 // Local current-user timestamps only. Elevated code/binary lives in Program
 // Files; the receiver and portable GUI retain their ordinary user token.
 static class FullChainLatency {
  const int Slots=1024,Footer=64+Slots*64,Bytes=Footer+128;
  static readonly string Sid=WindowsIdentity.GetCurrent().User.Value;
- static readonly string TaskName="PyroScreen-DisplayLatency-"+Sid;
+ static readonly string TaskName="SideWave-DisplayLatency-"+Sid;
  static readonly string OwnerFile=Path.Combine(Paths.Root,"latency-owner.json");
  const string PresentMonHash="B2A706BC6AD475749E3B7E3409263AA1E6906D45BDCF993F6DBC0F660188F1AF";
  [DllImport("advapi32.dll",SetLastError=true)]static extern bool OpenProcessToken(IntPtr process,int access,out IntPtr token);
@@ -33,19 +33,19 @@ static class FullChainLatency {
   if(!new WindowsPrincipal(WindowsIdentity.GetCurrent()).IsInRole(WindowsBuiltInRole.Administrator))throw new IOException("Display latency setup requires Windows administrator permission.");
   string source=Process.GetCurrentProcess().MainModule.FileName,pm=Path.Combine(Paths.Bin,"PresentMon.exe");
   if(Hash(pm)!=PresentMonHash)throw new IOException("Unexpected system display sampler binary.");
-  string folder=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),"PyroScreen","DisplayLatency",Hash(source).Substring(0,16));Directory.CreateDirectory(folder);
-  foreach(var pair in new[]{new[]{source,Path.Combine(folder,"PyroScreen.exe")},new[]{pm,Path.Combine(folder,"PresentMon.exe")}})if(!File.Exists(pair[1])||Hash(pair[0])!=Hash(pair[1]))File.Copy(pair[0],pair[1],true);
+  string folder=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),"SideWave","DisplayLatency",Hash(source).Substring(0,16));Directory.CreateDirectory(folder);
+  foreach(var pair in new[]{new[]{source,Path.Combine(folder,"SideWave.exe")},new[]{pm,Path.Combine(folder,"PresentMon.exe")}})if(!File.Exists(pair[1])||Hash(pair[0])!=Hash(pair[1]))File.Copy(pair[0],pair[1],true);
   dynamic service=Scheduler(),definition=service.NewTask(0);
   // Replace only this user's sampler task. Stop its named ETW sessions after
   // the task is stopped, so a helper upgrade cannot leave an orphan capture.
-  var sessions=new HashSet<int>();string protectedRoot=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),"PyroScreen","DisplayLatency")+Path.DirectorySeparatorChar;
-  foreach(var helper in Process.GetProcessesByName("PyroScreen"))try{using(helper)if(helper.Id!=Process.GetCurrentProcess().Id&&helper.MainModule.FileName.StartsWith(protectedRoot,StringComparison.OrdinalIgnoreCase)&&Owned(helper))sessions.Add(helper.SessionId);}catch{}
+  var sessions=new HashSet<int>();string protectedRoot=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),"SideWave","DisplayLatency")+Path.DirectorySeparatorChar;
+  foreach(var helper in Process.GetProcessesByName("SideWave"))try{using(helper)if(helper.Id!=Process.GetCurrentProcess().Id&&helper.MainModule.FileName.StartsWith(protectedRoot,StringComparison.OrdinalIgnoreCase)&&Owned(helper))sessions.Add(helper.SessionId);}catch{}
   try{service.GetFolder("\\").GetTask(TaskName).Stop(0);}catch{}
-  foreach(int oldSession in sessions)using(var stop=Process.Start(new ProcessStartInfo(Path.Combine(folder,"PresentMon.exe"),"--terminate_existing_session --session_name PyroScreenDisplayLatency-"+Sid+"-"+oldSession){UseShellExecute=false,CreateNoWindow=true})){if(!stop.WaitForExit(5000)){stop.Kill();throw new IOException("Previous display sampler did not stop.");}}
-  definition.RegistrationInfo.Author="PyroScreen";definition.RegistrationInfo.Description="Current-user video frame to system display timing";
+  foreach(int oldSession in sessions)using(var stop=Process.Start(new ProcessStartInfo(Path.Combine(folder,"PresentMon.exe"),"--terminate_existing_session --session_name SideWaveDisplayLatency-"+Sid+"-"+oldSession){UseShellExecute=false,CreateNoWindow=true})){if(!stop.WaitForExit(5000)){stop.Kill();throw new IOException("Previous display sampler did not stop.");}}
+  definition.RegistrationInfo.Author="SideWave";definition.RegistrationInfo.Description="Current-user video frame to system display timing";
   definition.Principal.UserId=Sid;definition.Principal.LogonType=3;definition.Principal.RunLevel=1;
   definition.Settings.MultipleInstances=2;definition.Settings.ExecutionTimeLimit="PT0S";definition.Settings.DisallowStartIfOnBatteries=false;definition.Settings.StopIfGoingOnBatteries=false;
-  dynamic action=definition.Actions.Create(0);action.Path=Path.Combine(folder,"PyroScreen.exe");action.Arguments="--display-latency-broker";action.WorkingDirectory=folder;
+  dynamic action=definition.Actions.Create(0);action.Path=Path.Combine(folder,"SideWave.exe");action.Arguments="--display-latency-broker";action.WorkingDirectory=folder;
   string acl="D:P(A;;FA;;;"+Sid+")(A;;FA;;;SY)(A;;FA;;;BA)";
   dynamic task=service.GetFolder("\\").RegisterTaskDefinition(TaskName,definition,6,Sid,null,3,acl);task.Run(null);return 0;
  }
@@ -57,7 +57,7 @@ static class FullChainLatency {
   var owner=Json.Read(File.ReadAllText(OwnerFile));int pid=Json.I(owner,"pid"),session=Json.I(owner,"session");
   string runtime=Path.GetFullPath(Json.S(owner,"runtime")),prefix=Path.GetFullPath(Path.Combine(Paths.Root,"sessions"))+Path.DirectorySeparatorChar;
   if(!runtime.StartsWith(prefix,StringComparison.OrdinalIgnoreCase)||!Path.GetFileName(runtime).StartsWith(pid+"-",StringComparison.Ordinal)||session!=Process.GetCurrentProcess().SessionId)return null;
-  using(var parent=Process.GetProcessById(pid))if(parent.HasExited||parent.ProcessName!="PyroScreen"||parent.SessionId!=session||!Owned(parent))return null;
+  using(var parent=Process.GetProcessById(pid))if(parent.HasExited||parent.ProcessName!="SideWave"||parent.SessionId!=session||!Owned(parent))return null;
   foreach(string file in Directory.EnumerateFiles(runtime,"display-timing-*.bin")){
    Target target=null;
    try{
@@ -66,7 +66,7 @@ static class FullChainLatency {
     target=new Target{Runtime=runtime};target.Map=MemoryMappedFile.CreateFromFile(stream,null,Bytes,MemoryMappedFileAccess.ReadWrite,null,HandleInheritability.None,false);target.View=target.Map.CreateViewAccessor(0,Bytes,MemoryMappedFileAccess.ReadWrite);
     if(target.View.ReadUInt32(0)!=0x50594c54||target.View.ReadUInt32(4)!=1||target.View.ReadUInt32(12)!=Slots){target.Dispose();continue;}
     target.Pid=(int)target.View.ReadUInt32(8);target.Receiver=Process.GetProcessById(target.Pid);
-    if(target.Receiver.HasExited||target.Receiver.ProcessName!="PyroScreen-Receiver"||target.Receiver.SessionId!=session||!Owned(target.Receiver)){target.Dispose();continue;}
+    if(target.Receiver.HasExited||target.Receiver.ProcessName!="SideWave-Receiver"||target.Receiver.SessionId!=session||!Owned(target.Receiver)){target.Dispose();continue;}
     return target;
    }catch{if(target!=null)target.Dispose();}
   }
@@ -80,7 +80,7 @@ static class FullChainLatency {
   public bool Alive{get{return reader.IsAlive&&!process.HasExited&&!target.Receiver.HasExited;}}
   public int Pid{get{return target.Pid;}}
   public Capture(Target t){target=t;frequency=t.View.ReadInt64(16);if(frequency!=Stopwatch.Frequency)throw new IOException("Display clock frequency mismatch.");
-   session="PyroScreenDisplayLatency-"+Sid+"-"+Process.GetCurrentProcess().SessionId;
+   session="SideWaveDisplayLatency-"+Sid+"-"+Process.GetCurrentProcess().SessionId;
    process=Process.Start(new ProcessStartInfo(Path.Combine(Paths.Bin,"PresentMon.exe"),"--process_id "+t.Pid+" --output_stdout --v1_metrics --qpc_time --no_console_stats --no_track_input --no_track_gpu --track_hybrid_present --terminate_on_proc_exit --stop_existing_session --session_name "+session){UseShellExecute=false,CreateNoWindow=true,RedirectStandardOutput=true,RedirectStandardError=true});
    process.ErrorDataReceived+=(s,e)=>{if(!String.IsNullOrEmpty(e.Data))Paths.Log("display-latency",e.Data);};process.BeginErrorReadLine();
    reader=new Thread(Read){IsBackground=true,Name="System display feedback"};reader.Start();

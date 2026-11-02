@@ -13,5 +13,5 @@ jobs:
       - name: Publish preview build artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: PyroScreen-preview
+          name: SideWave-preview
           path: dist/*-preview.zip

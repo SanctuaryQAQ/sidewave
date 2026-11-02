@@ -16,7 +16,7 @@ using System.Web.Script.Serialization;
 using System.Diagnostics;
 using Microsoft.Win32.SafeHandles;
 
-namespace PyroScreen {
+namespace SideWave {
 static class Json {
  public static string Write(object o) { return new JavaScriptSerializer{MaxJsonLength=131072}.Serialize(o); }
  public static Dictionary<string,object> Read(string s) { return new JavaScriptSerializer{MaxJsonLength=131072,RecursionLimit=12}.Deserialize<Dictionary<string,object>>(s); }
@@ -25,11 +25,19 @@ static class Json {
  public static long L(Dictionary<string,object>d,string k){long n;return long.TryParse(S(d,k),out n)?n:0;}
 }
 static class Paths {
- public static readonly string Root=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"PyroScreen");
+ public static readonly string Root=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"SideWave");
  public static readonly string Runtime=Path.Combine(Root,"sessions",Process.GetCurrentProcess().Id+"-"+Guid.NewGuid().ToString("N"));
  public static readonly string Bin=AppDomain.CurrentDomain.BaseDirectory;
  static readonly object atomicGate=new object();
  public static void Init(){Directory.CreateDirectory(Runtime);}
+ // Copies settings and pairings from the pre-rename data folder once; that folder stays as a backup.
+ public static void MigrateLegacy(){
+  string legacy=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"PyroScreen");
+  if(!Directory.Exists(legacy)||File.Exists(Path.Combine(Root,"host.json"))||File.Exists(Path.Combine(Root,"client.json")))return;
+  try{
+   foreach(string file in Directory.GetFiles(legacy))if(!new[]{".log",".tmp"}.Contains(Path.GetExtension(file).ToLowerInvariant()))File.Copy(file,Path.Combine(Root,Path.GetFileName(file)),false);
+  }catch(Exception e){Log("startup","Could not copy earlier settings: "+e.Message);}
+ }
  public static void Atomic(string path,string value){lock(atomicGate){
   string temp=path+".tmp";File.WriteAllText(temp,value,new UTF8Encoding(false));
   for(int i=0;i<8;i++){if(Native.MoveFileEx(temp,path,1))return;Thread.Sleep(10);}
@@ -111,7 +119,7 @@ static class Secrets {
  public static byte[] CodeKey(string code){
   string s=(code??"").Replace("-","").Replace(" ","").ToUpperInvariant();
   if(s.Length!=16||s.Any(c=>!"ABCDEFGHJKLMNPQRSTUVWXYZ23456789".Contains(c)))throw new Exception("配对码应为客户端显示的 16 位字符。");
-  using(var h=SHA256.Create())return h.ComputeHash(Encoding.UTF8.GetBytes("PyroScreen pairing v1|"+s));
+  using(var h=SHA256.Create())return h.ComputeHash(Encoding.UTF8.GetBytes("SideWave pairing v1|"+s));
  }
  public static string Pin(X509Certificate c){using(var h=SHA256.Create())return Convert.ToBase64String(h.ComputeHash(c.GetRawCertData()));}
  public static string Mac(byte[]key,string text){using(var h=new HMACSHA256(key))return Convert.ToBase64String(h.ComputeHash(Encoding.UTF8.GetBytes(text)));}
@@ -123,7 +131,7 @@ static class Secrets {
   string p=Path.Combine(Paths.Root,"client-cert.dpapi");
   if(File.Exists(p))return new X509Certificate2(ProtectedData.Unprotect(File.ReadAllBytes(p),null,DataProtectionScope.CurrentUser),"",X509KeyStorageFlags.UserKeySet | X509KeyStorageFlags.PersistKeySet);
   using(var rsa=RSA.Create(2048)){
-   var req=new CertificateRequest("CN=PyroScreen LAN client",rsa,HashAlgorithmName.SHA256,RSASignaturePadding.Pkcs1);
+   var req=new CertificateRequest("CN=SideWave LAN client",rsa,HashAlgorithmName.SHA256,RSASignaturePadding.Pkcs1);
    req.CertificateExtensions.Add(new X509BasicConstraintsExtension(false,false,0,true));
    req.CertificateExtensions.Add(new X509KeyUsageExtension(X509KeyUsageFlags.DigitalSignature,true));
    using(var cert=req.CreateSelfSigned(DateTimeOffset.UtcNow.AddDays(-2),DateTimeOffset.UtcNow.AddYears(10))){
@@ -143,7 +151,7 @@ class Wire:IDisposable {
    if(c==null)return false;Pin=Secrets.Pin(c);return String.IsNullOrEmpty(expectedPin)||Secrets.Equal(Pin,expectedPin);
   });
   if(server)tls.AuthenticateAsServer(cert,false,SslProtocols.Tls12,false);
-  else tls.AuthenticateAsClient("PyroScreen",null,SslProtocols.Tls12,false);
+  else tls.AuthenticateAsClient("SideWave",null,SslProtocols.Tls12,false);
   tls.ReadTimeout=15000;tls.WriteTimeout=15000;
  }
  public void Send(object value){
@@ -249,7 +257,7 @@ class Engine:IDisposable {
   Stop();if(!File.Exists(exe))throw new FileNotFoundException("缺少视频组件",exe);
   var si=new ProcessStartInfo(exe,args){UseShellExecute=false,CreateNoWindow=true,WorkingDirectory=Paths.Bin,
     RedirectStandardError=true,RedirectStandardOutput=true};
-  si.EnvironmentVariables["PYROSCREEN_RUNTIME"]=Paths.Runtime;
+  si.EnvironmentVariables["SIDEWAVE_RUNTIME"]=Paths.Runtime;
   // The installed RTSS Vulkan manifest defines this per-process opt-out.
   si.EnvironmentVariables["DISABLE_RTSS_LAYER"]="1";
   si.EnvironmentVariables["RTSSHooksProfileOverride"]="EnableHooking,0";
@@ -332,7 +340,7 @@ class DisplayLease:IDisposable {
    request=0;
    string args="--backend "+backend+" --device-id "+deviceId+" --status-file "+Engine.Q(status)+" --width "+w+" --height "+h+" --refresh "+fps+" --parent "+Process.GetCurrentProcess().Id;
    bool admin=new System.Security.Principal.WindowsPrincipal(System.Security.Principal.WindowsIdentity.GetCurrent()).IsInRole(System.Security.Principal.WindowsBuiltInRole.Administrator);
-   var info=new ProcessStartInfo(Path.Combine(Paths.Bin,"PyroScreen-Display.exe"),args){WorkingDirectory=Paths.Bin,WindowStyle=ProcessWindowStyle.Hidden,UseShellExecute=!admin,CreateNoWindow=true};
+   var info=new ProcessStartInfo(Path.Combine(Paths.Bin,"SideWave-Display.exe"),args){WorkingDirectory=Paths.Bin,WindowStyle=ProcessWindowStyle.Hidden,UseShellExecute=!admin,CreateNoWindow=true};
    if(!admin)info.Verb="runas";
    lease=Process.Start(info);
    if(admin&&!ChildJob.Attach(lease)){lease.Kill();throw new IOException("无法建立虚拟屏清理任务。");}

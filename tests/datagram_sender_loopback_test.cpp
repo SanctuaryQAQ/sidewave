@@ -1,4 +1,4 @@
-#define PYROSCREEN_DATAGRAM_UNIT_TEST
+#define SIDEWAVE_DATAGRAM_UNIT_TEST
 #define NOMINMAX
 #include <winsock2.h>
 #include <atomic>

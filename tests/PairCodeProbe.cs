@@ -1,7 +1,7 @@
 using System;
 using System.IO;
 using System.Windows.Automation;
-namespace PyroScreenTests {
+namespace SideWaveTests {
 class PairCodeProbe{
  [STAThread]public static int Main(string[] args){
   if(args.Length!=1)return 1;

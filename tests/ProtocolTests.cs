@@ -4,7 +4,7 @@ using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
-namespace PyroScreen {
+namespace SideWave {
 class ProtocolTests {
  public static int Main(string[] args){
   Paths.Init();string result=Path.Combine(Paths.Bin,"protocol-test.json");

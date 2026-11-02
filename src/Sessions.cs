@@ -7,13 +7,13 @@ using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading;
 
-namespace PyroScreen {
+namespace SideWave {
 class ClientService:IDisposable {
  readonly Settings settings;readonly X509Certificate2 cert;
  readonly TcpListener listener=new TcpListener(IPAddress.Any,55166);
  readonly SemaphoreSlim pending=new SemaphoreSlim(4);
  readonly object gate=new object();
- readonly Engine receiver=new Engine("PyroScreen-Receiver.exe","receiver");
+ readonly Engine receiver=new Engine("SideWave-Receiver.exe","receiver");
  Discovery discovery;volatile bool stop;bool occupied;TcpClient active;
  string activeHostId="";
  DateTime codeExpires;string code;
@@ -58,7 +58,7 @@ class ClientService:IDisposable {
     string nonce=Convert.ToBase64String(Secrets.Random(32)),pin=Secrets.Pin(cert);
     byte[] key;lock(gate)key=settings.Token(hostId);bool paired=key!=null&&Json.S(hello,"pair")!="True";
     if(!paired){lock(gate){if(DateTime.UtcNow>codeExpires)throw new IOException("配对码已过期，请刷新客户端配对码。");if(DateTime.UtcNow<nextPairAllowed)throw new IOException("配对尝试过多，请稍后重试。");key=Secrets.CodeKey(code);}}
-    string transcript="PyroScreen|1|"+hostId+"|"+settings.DeviceId+"|"+hostNonce+"|"+nonce+"|"+pin;
+    string transcript="SideWave|1|"+hostId+"|"+settings.DeviceId+"|"+hostNonce+"|"+nonce+"|"+pin;
     wire.Send(new{type="challenge",protocol=1,id=settings.DeviceId,nonce=nonce,paired=paired,
       supportsPlainVideo=true,supportsTearingMode=true,supportsPartialFrames=true,supportsClientCursor=true,supportsSnapshotCadence=true,supportsRioReceive=true,supportsReceiveAffinity=true,proof=Secrets.Mac(key,"server|"+transcript),width=ScreenInfo.Width(),height=ScreenInfo.Height(),hz=ScreenInfo.Hz(),linkMbps=NetworkLink.Mbps(((IPEndPoint)t.Client.LocalEndPoint).Address)});
     var proof=wire.Read();
@@ -136,7 +136,7 @@ class ClientService:IDisposable {
 class HostLink:IDisposable {
  readonly Settings settings;
  Wire wire;TcpClient tcp;DisplayLease display;
- readonly Engine sender=new Engine("PyroScreen-Sender.exe","sender");
+ readonly Engine sender=new Engine("SideWave-Sender.exe","sender");
  bool appliedProtection,appliedSegmentation,appliedEncryption,plainSupported,appliedTearing,tearingSupported,appliedClientCursor,clientCursorSupported,snapshotSupported,rioReceiveSupported,receiveAffinitySupported,partialSupported;
  int appliedProtectionBytes,appliedPacing;
  bool appliedBackpressure,appliedPipeline,appliedSkipImmediate,appliedPartialFrames,appliedCaptureOnUpdate,appliedRio,appliedConnected,appliedRioReceive;int appliedSendBuffer,appliedReceiveCpu,appliedSendWindow;
@@ -172,7 +172,7 @@ class HostLink:IDisposable {
    byte[] key=settings.Token(PeerId);
    if(key!=null&&!String.IsNullOrEmpty(settings.LastPin)&&PeerId==settings.LastId&&!Secrets.Equal(wire.Pin,settings.LastPin))throw new Exception("设备证书已改变。请忘记旧配对后重新确认副机。");
    if(key==null||Json.S(challenge,"paired")!="True")key=Secrets.CodeKey(code);
-   string transcript="PyroScreen|1|"+settings.DeviceId+"|"+PeerId+"|"+nonce+"|"+Json.S(challenge,"nonce")+"|"+wire.Pin;
+   string transcript="SideWave|1|"+settings.DeviceId+"|"+PeerId+"|"+nonce+"|"+Json.S(challenge,"nonce")+"|"+wire.Pin;
    if(!Secrets.Equal(Json.S(challenge,"proof"),Secrets.Mac(key,"server|"+transcript)))throw new Exception("配对码错误或设备身份不匹配。");
    wire.Send(new{type="proof",proof=Secrets.Mac(key,"host|"+transcript)});
    var ready=wire.Read();if(Json.S(ready,"type")!="ready")throw new Exception(Json.S(ready,"message","配对失败。"));

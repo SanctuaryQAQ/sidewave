@@ -1,6 +1,6 @@
 # Include after the existing pyrowave-shared target. This adds an offline tool only.
 if(NOT WIN32 OR NOT TARGET pyrowave-shared)
-  message(FATAL_ERROR "QualityImageCompare requires the Windows PyroScreen pyrowave-shared target")
+  message(FATAL_ERROR "QualityImageCompare requires the Windows SideWave pyrowave-shared target")
 endif()
 if(PYROWAVE_FP32_STORAGE OR NOT PYROWAVE_FP32_MATH)
   message(FATAL_ERROR "QualityImageCompare requires production precision 1: FP32_MATH=ON, FP32_STORAGE=OFF")

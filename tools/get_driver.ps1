@@ -13,4 +13,4 @@ New-Item -ItemType Directory -Path $driver -Force|Out-Null
 foreach($name in @('MttVDD.inf','MttVDD.dll','mttvdd.cat')){Copy-Item -LiteralPath (Join-Path $unpack "VirtualDisplayDriver\$name") -Destination $driver -Force}
 $signature=Get-AuthenticodeSignature -LiteralPath (Join-Path $driver 'mttvdd.cat')
 if($signature.Status -ne 'Valid'){throw 'Driver catalog signature is invalid.'}
-Copy-Item (Join-Path $root 'assets\pyroscreen-vdd-settings.xml') $driver -Force
+Copy-Item (Join-Path $root 'assets\sidewave-vdd-settings.xml') $driver -Force

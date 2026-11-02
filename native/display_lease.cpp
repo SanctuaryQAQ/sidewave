@@ -88,12 +88,12 @@ int wmain(int argc,wchar_t**argv){
  if(backend==L"vdd")EnsureModes(w,h);
  auto before=Displays();const wchar_t*hw=backend==L"vdd"?L"MttVDD\0":L"LanScreenDisplay\0";
  // Stable adapter identity lets Windows reuse its display configuration on reconnect.
- std::wstring instance=L"PyroScreen-"+deviceId+L"-"+backend;
+ std::wstring instance=L"SideWave-"+deviceId+L"-"+backend;
  SW_DEVICE_CREATE_INFO info{};info.cbSize=sizeof(info);info.pszInstanceId=instance.c_str();
- info.pszzHardwareIds=hw;info.pszzCompatibleIds=hw;info.pszDeviceDescription=L"PyroScreen virtual monitor";
+ info.pszzHardwareIds=hw;info.pszzCompatibleIds=hw;info.pszDeviceDescription=L"SideWave virtual monitor";
  info.CapabilityFlags=SWDeviceCapabilitiesRemovable|SWDeviceCapabilitiesSilentInstall|SWDeviceCapabilitiesDriverRequired;
  CreatedState state{CreateEventW(nullptr,TRUE,FALSE,nullptr),E_PENDING};HSWDEVICE device=nullptr;
- HRESULT r=SwDeviceCreate(L"PyroScreen",L"HTREE\\ROOT\\0",&info,0,nullptr,Created,&state,&device);
+ HRESULT r=SwDeviceCreate(L"SideWave",L"HTREE\\ROOT\\0",&info,0,nullptr,Created,&state,&device);
  if(SUCCEEDED(r)){DWORD wait=WaitForSingleObject(state.event,30000);r=wait==WAIT_OBJECT_0?state.result:HRESULT_FROM_WIN32(ERROR_TIMEOUT);}
  CloseHandle(state.event);
  if(FAILED(r)){if(device)SwDeviceClose(device);Write(path,L"ERROR|DRIVER_CREATE|"+std::to_wstring(unsigned(r)));return 2;}

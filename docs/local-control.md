@@ -1,6 +1,6 @@
 # Local control API
 
-PyroScreen exposes an explicit named-pipe API scoped to the current Windows
+SideWave exposes an explicit named-pipe API scoped to the current Windows
 user. It does not simulate input, capture the screen, or use accessibility
 automation. `INFO` reports application/engine state. `CTRL` accepts a bounded
 JSON request and returns a command ID; `INFO` then reports its queued, running,
@@ -12,10 +12,10 @@ These commands target the already running application and never open a
 PowerShell console. Use a result directory writable by the current user.
 
 ```powershell
-.\PyroScreen.exe --status --result "$env:TEMP\pyroscreen-status.json"
-.\PyroScreen.exe --apply-current --result "$env:TEMP\pyroscreen-apply.json"
-.\PyroScreen.exe --stop-video --result "$env:TEMP\pyroscreen-stop.json"
-.\PyroScreen.exe --control "settings-request.json" --result "$env:TEMP\pyroscreen-change.json"
+.\SideWave.exe --status --result "$env:TEMP\sidewave-status.json"
+.\SideWave.exe --apply-current --result "$env:TEMP\sidewave-apply.json"
+.\SideWave.exe --stop-video --result "$env:TEMP\sidewave-stop.json"
+.\SideWave.exe --control "settings-request.json" --result "$env:TEMP\sidewave-change.json"
 ```
 
 Example `settings-request.json`:
@@ -65,7 +65,7 @@ New profiles default to false.
 
 ## Wire format
 
-- Pipe: `PyroScreen-<current Windows user SID>`.
+- Pipe: `SideWave-<current Windows user SID>`.
   Its ACL grants the owning SID access; the provided CLI connects locally.
 - Status: four ASCII bytes `INFO`.
 - Control: four ASCII bytes `CTRL`, signed little-endian 32-bit byte count,

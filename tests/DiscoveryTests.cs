@@ -7,7 +7,7 @@ using System.Net;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using System.Threading;
-namespace PyroScreen {
+namespace SideWave {
 class DiscoveryTests {
  [STAThread] public static int Main(string[] args) {
   if(args.Length!=3)return 2;

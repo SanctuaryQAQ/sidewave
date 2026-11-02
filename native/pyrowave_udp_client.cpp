@@ -536,10 +536,10 @@ int wmain(int argc, wchar_t **argv)
 	// Match swap-chain pixels to the physical panel, including 150% scaling.
 	SetProcessDPIAware();
  wchar_t runtimeBuffer[32768]{};
- DWORD runtimeLength=GetEnvironmentVariableW(L"PYROSCREEN_RUNTIME",runtimeBuffer,32768);
+ DWORD runtimeLength=GetEnvironmentVariableW(L"SIDEWAVE_RUNTIME",runtimeBuffer,32768);
  std::wstring runtimeRoot;
  if(runtimeLength&&runtimeLength<32768)runtimeRoot=runtimeBuffer;
- else{wchar_t legacy[MAX_PATH]{};if(GetEnvironmentVariableW(L"LOCALAPPDATA",legacy,MAX_PATH))runtimeRoot=std::wstring(legacy)+L"\\PyroScreen\\runtime";else runtimeRoot=L".";}
+ else{wchar_t legacy[MAX_PATH]{};if(GetEnvironmentVariableW(L"LOCALAPPDATA",legacy,MAX_PATH))runtimeRoot=std::wstring(legacy)+L"\\SideWave\\runtime";else runtimeRoot=L".";}
  {
   std::wstring logPath=runtimeRoot+L"\\receiver.stderr.txt";int descriptor=-1;
   if(_wsopen_s(&descriptor,logPath.c_str(),_O_WRONLY|_O_CREAT|_O_TRUNC|_O_TEXT,_SH_DENYNO,_S_IREAD|_S_IWRITE)==0){_dup2(descriptor,_fileno(stderr));_close(descriptor);}
@@ -557,16 +557,16 @@ int wmain(int argc, wchar_t **argv)
 	bool traceStages=false;
  bool allowTearing=false;
  bool flushBeforePresent=false,fragmentDecode=false;
-#ifdef PYROSCREEN_TEST_FLUSH_PRESENT_DEFAULT
+#ifdef SIDEWAVE_TEST_FLUSH_PRESENT_DEFAULT
  flushBeforePresent=true;
 #endif
-#ifdef PYROSCREEN_TEST_FRAGMENT_DEFAULT
+#ifdef SIDEWAVE_TEST_FRAGMENT_DEFAULT
  fragmentDecode=true;
 #endif
-#ifdef PYROSCREEN_TEST_TEARING_DEFAULT
+#ifdef SIDEWAVE_TEST_TEARING_DEFAULT
  allowTearing=true;
 #endif
-#ifdef PYROSCREEN_TEST_STAGE_TRACE_DEFAULT
+#ifdef SIDEWAVE_TEST_STAGE_TRACE_DEFAULT
  traceStages=true;
 #endif
 	std::wstring secretFile;
@@ -608,15 +608,15 @@ int wmain(int argc, wchar_t **argv)
 		}
 	}
 
-#ifdef PYROSCREEN_TEST_RIO_RECEIVE_DEFAULT
+#ifdef SIDEWAVE_TEST_RIO_RECEIVE_DEFAULT
  receiveRio=true;
 #endif
-#ifdef PYROSCREEN_TEST_COALESCED_RECEIVE_DEFAULT
+#ifdef SIDEWAVE_TEST_COALESCED_RECEIVE_DEFAULT
  receiveCoalesced=true;
 #endif
  if(receiveRio&&receiveCoalesced){fprintf(stderr,"Test receive backends independently\n");return 1;}
  if(receiveCpu>=0){DWORD_PTR allowed=0,system=0;if(!GetProcessAffinityMask(GetCurrentProcess(),&allowed,&system)||!(allowed&(DWORD_PTR(1)<<receiveCpu))){fprintf(stderr,"Requested receive processor is unavailable\n");return 1;}}
-#ifdef PYROSCREEN_TEST_NVIDIA_DEFAULT
+#ifdef SIDEWAVE_TEST_NVIDIA_DEFAULT
  preferredRenderer=0x10de;
 #endif
 	if(Width<640||Width>3840||Height<480||Height>2160||Width%2||Height%2||secretFile.empty()||!trustedPeer)return 1;
@@ -655,7 +655,7 @@ int wmain(int argc, wchar_t **argv)
 	DEVMODEW screenMode{}; screenMode.dmSize = sizeof(screenMode);
 	EnumDisplaySettingsW(nullptr, ENUM_CURRENT_SETTINGS, &screenMode);
 	HWND window = CreateWindowExW(WS_EX_TOPMOST, windowClass.lpszClassName,
-		L"PyroScreen display", WS_POPUP, 0, 0, screenWidth, screenHeight,
+		L"SideWave display", WS_POPUP, 0, 0, screenWidth, screenHeight,
 		nullptr, nullptr, windowClass.hInstance, nullptr);
 	if (!window)
 	{
@@ -675,7 +675,7 @@ int wmain(int argc, wchar_t **argv)
 	RegisterClassW(&overlayClass);
 	HWND overlay = CreateWindowExW(WS_EX_LAYERED | WS_EX_TRANSPARENT | WS_EX_TOPMOST |
 		WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE, overlayClass.lpszClassName,
-		L"PyroScreen live stats", WS_POPUP, 6, std::max(6, screenHeight - 36), 178, 30,
+		L"SideWave live stats", WS_POPUP, 6, std::max(6, screenHeight - 36), 178, 30,
 		window, nullptr, windowClass.hInstance, nullptr);
 	if (!overlay)
 	{

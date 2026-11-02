@@ -25,10 +25,10 @@ if($UseExistingEngineBuild){
  $cmake=& (Join-Path $root 'tools\find_cmake.ps1')
  & $cmake -S $root -B (Join-Path $root 'build\cmake') -A x64
  if($LASTEXITCODE){throw 'CMake configure failed'}
- & $cmake --build (Join-Path $root 'build\cmake') --config Release --target PyroScreen-Sender PyroScreen-Receiver PyroScreen-Display
+ & $cmake --build (Join-Path $root 'build\cmake') --config Release --target SideWave-Sender SideWave-Receiver SideWave-Display
  if($LASTEXITCODE){throw 'Native compilation failed'}
  $bin=Join-Path $root 'build\bin';New-Item -ItemType Directory -Path $bin -Force|Out-Null
- Get-ChildItem (Join-Path $root 'build\cmake') -Recurse -File|Where-Object {($_.Name -like 'PyroScreen-*.exe' -or $_.Name -eq 'libpyrowave-shared-1.dll') -and $_.Directory.Name -eq 'Release'}|Copy-Item -Destination $bin -Force
+ Get-ChildItem (Join-Path $root 'build\cmake') -Recurse -File|Where-Object {($_.Name -like 'SideWave-*.exe' -or $_.Name -eq 'libpyrowave-shared-1.dll') -and $_.Directory.Name -eq 'Release'}|Copy-Item -Destination $bin -Force
 }
 & (Join-Path $root 'tools\build_app.ps1')
 if(-not $SkipDriverDownload){& (Join-Path $root 'tools\get_driver.ps1')}

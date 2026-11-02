@@ -1,6 +1,6 @@
 param([int]$Samples=15,[int[]]$Targets=@(60,120,165,240))
 $ErrorActionPreference='Stop'
-$root=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'));$results=Join-Path $root 'results';$app=Join-Path $root 'dist\PyroScreen\PyroScreen.exe'
+$root=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'));$results=Join-Path $root 'results';$app=Join-Path $root 'dist\SideWave\SideWave.exe'
 New-Item -ItemType Directory -Path $results -Force|Out-Null
 trap{[IO.File]::WriteAllText((Join-Path $results 'constant-cadence-measure.error'),($_|Out-String));exit 1}
 function Api($commandLine,$name){

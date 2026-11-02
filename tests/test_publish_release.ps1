@@ -16,7 +16,7 @@ function Write-Manifest {
 function Publish {& $publisher -SourceDirectory $source -ReleaseRoot $release}
 try {
  New-Item -ItemType Directory -Path $source -Force|Out-Null
- foreach($file in @('PyroScreen.exe','MainWindow.xaml','libpyrowave-shared-1.dll','PyroScreen-Sender.exe','PyroScreen-Receiver.exe','PyroScreen-Display.exe','obsolete.txt')){
+ foreach($file in @('SideWave.exe','MainWindow.xaml','libpyrowave-shared-1.dll','SideWave-Sender.exe','SideWave-Receiver.exe','SideWave-Display.exe','obsolete.txt')){
   'version-one'|Set-Content -LiteralPath (Join-Path $source $file) -Encoding ASCII
  }
  Write-Manifest
@@ -28,17 +28,17 @@ try {
  Assert ($same.Status -eq 'Unchanged') 'identical update is skipped'
  Assert (-not(Test-Path -LiteralPath (Join-Path $release 'archive'))) 'identical update does not create an archive'
 
- 'version-two'|Set-Content -LiteralPath (Join-Path $source 'PyroScreen.exe') -Encoding ASCII
+ 'version-two'|Set-Content -LiteralPath (Join-Path $source 'SideWave.exe') -Encoding ASCII
  Remove-Item -LiteralPath (Join-Path $source 'obsolete.txt')
  Write-Manifest
  $second=Publish
  Assert ($second.Executable -eq $target) 'executable path is unchanged'
  Assert ((Get-Content -LiteralPath $target -Raw).Trim() -eq 'version-two') 'new release replaces current release'
- Assert ((Get-Content -LiteralPath (Join-Path $second.Archive 'PyroScreen.exe') -Raw).Trim() -eq 'version-one') 'old executable is archived intact'
+ Assert ((Get-Content -LiteralPath (Join-Path $second.Archive 'SideWave.exe') -Raw).Trim() -eq 'version-one') 'old executable is archived intact'
  Assert (Test-Path -LiteralPath (Join-Path $second.Archive 'obsolete.txt')) 'complete old bundle is archived'
  Assert (-not(Test-Path -LiteralPath (Join-Path (Split-Path $target) 'obsolete.txt'))) 'removed files do not survive in the new release'
 
- 'corrupt-without-updating-manifest'|Set-Content -LiteralPath (Join-Path $source 'PyroScreen.exe') -Encoding ASCII
+ 'corrupt-without-updating-manifest'|Set-Content -LiteralPath (Join-Path $source 'SideWave.exe') -Encoding ASCII
  $rejected=$false
  try{Publish|Out-Null}catch{$rejected=$_.Exception.Message -like '*checksum mismatch*'}
  Assert $rejected 'corrupt source is rejected'

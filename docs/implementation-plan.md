@@ -1,4 +1,4 @@
-# PyroScreen acceptance
+# SideWave acceptance
 
 Status: development; not a stable release until the checks below pass.
 

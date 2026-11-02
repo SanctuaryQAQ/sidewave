@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Threading;
-namespace PyroScreen {
+namespace SideWave {
 class PrimaryDisplayProbe {
  [StructLayout(LayoutKind.Sequential,CharSet=CharSet.Unicode)]struct Device {
   public uint size;[MarshalAs(UnmanagedType.ByValTStr,SizeConst=32)]public string name;

@@ -6,7 +6,7 @@ using System.Security.Principal;
 using System.Text;
 using System.Threading;
 
-namespace PyroScreen {
+namespace SideWave {
 // Explicit local application API. It shares the same current-user pipe ACL as
 // INFO and never operates on windows, input devices or accessibility controls.
 static class LocalControl {
@@ -21,7 +21,7 @@ static class LocalControl {
  }
  public static void Reply(Stream stream,object value){byte[] bytes=Encoding.UTF8.GetBytes(Json.Write(value));stream.Write(BitConverter.GetBytes(bytes.Length),0,4);stream.Write(bytes,0,bytes.Length);}
  static Dictionary<string,object> Call(Dictionary<string,object> request){
-  using(var pipe=new NamedPipeClientStream(".","PyroScreen-"+WindowsIdentity.GetCurrent().User.Value,PipeDirection.InOut,PipeOptions.Asynchronous)){
+  using(var pipe=new NamedPipeClientStream(".","SideWave-"+WindowsIdentity.GetCurrent().User.Value,PipeDirection.InOut,PipeOptions.Asynchronous)){
    pipe.Connect(3000);byte[] tag=Encoding.ASCII.GetBytes(request==null?"INFO":"CTRL");pipe.Write(tag,0,4);
    if(request!=null){byte[] bytes=Encoding.UTF8.GetBytes(Json.Write(request));if(bytes.Length>16384)throw new IOException("Local command is too large.");pipe.Write(BitConverter.GetBytes(bytes.Length),0,4);pipe.Write(bytes,0,bytes.Length);}
    int length=BitConverter.ToInt32(Read(pipe,4),0);if(length<2||length>32768)throw new IOException("Local reply size invalid.");

@@ -21,11 +21,11 @@ function Save-PackageArtifact([string]$Path){
 }
 & {
  $staging=Join-Path $dist ('.package-'+[Guid]::NewGuid().ToString('N'))
- $out=Join-Path $staging 'PyroScreen'
+ $out=Join-Path $staging 'SideWave'
  New-Item -ItemType Directory -Path $out -Force|Out-Null
  try {
- $files=@('PyroScreen.exe','MainWindow.xaml','app.png','app.ico','host.png','client.png','host.ico','client.ico','libpyrowave-shared-1.dll')
- $files+=@('PyroScreen-Sender.exe','PyroScreen-Receiver.exe','PyroScreen-Display.exe','Install-Driver.ps1','Install-Network.ps1','Inspect-System.ps1')
+ $files=@('SideWave.exe','MainWindow.xaml','app.png','app.ico','host.png','client.png','host.ico','client.ico','libpyrowave-shared-1.dll')
+ $files+=@('SideWave-Sender.exe','SideWave-Receiver.exe','SideWave-Display.exe','Install-Driver.ps1','Install-Network.ps1','Inspect-System.ps1')
  $files+='PresentMon.exe'
  foreach($f in $files){
   $inputFile=Join-Path $bin $f;$outputFile=Join-Path $out $f
@@ -43,16 +43,18 @@ function Save-PackageArtifact([string]$Path){
  }
  $hashes|Set-Content (Join-Path $out 'SHA256SUMS.txt') -Encoding ASCII
  & (Join-Path $PSScriptRoot 'publish_release.ps1') -SourceDirectory $out -ReleaseRoot $dist
- $out=Join-Path $dist 'PyroScreen'
- Save-PackageArtifact (Join-Path $dist 'PyroScreen-0.1-preview.zip')
- Compress-Archive -Path $out -DestinationPath (Join-Path $dist 'PyroScreen-0.1-preview.zip')
+ $out=Join-Path $dist 'SideWave'
+ Save-PackageArtifact (Join-Path $dist 'SideWave-0.1-preview.zip')
+ Compress-Archive -Path $out -DestinationPath (Join-Path $dist 'SideWave-0.1-preview.zip')
+ Save-PackageArtifact (Join-Path $dist 'SideWave.exe')
+ & (Join-Path $PSScriptRoot 'build_single.ps1') -BundleDirectory $out -Output (Join-Path $dist 'SideWave.exe')
  } finally {
   $prefix=$dist.TrimEnd('\','/')+[IO.Path]::DirectorySeparatorChar
   if(-not [IO.Path]::GetFullPath($staging).StartsWith($prefix,[StringComparison]::OrdinalIgnoreCase)){throw 'Package staging directory is outside DistRoot.'}
   if(Test-Path -LiteralPath $staging){Remove-Item -LiteralPath $staging -Recurse -Force}
  }
 }
-$source=Join-Path $dist 'PyroScreen-Source'
+$source=Join-Path $dist 'SideWave-Source'
 Save-PackageArtifact $source
 New-Item -ItemType Directory -Path $source -Force|Out-Null
 foreach($d in @('src','native','assets','docs','.github')){if(Test-Path (Join-Path $root $d)){Copy-Item -LiteralPath (Join-Path $root $d) -Destination $source -Recurse -Force}}
@@ -60,7 +62,7 @@ New-Item -ItemType Directory -Path (Join-Path $source 'tools'),(Join-Path $sourc
 foreach($f in @('SenderRecoveryTests.cs','verify_sender_recovery.ps1')){Copy-Item -LiteralPath (Join-Path $root "tests\$f") -Destination (Join-Path $source 'tests') -Force}
 Copy-Item -LiteralPath (Join-Path $root 'tests\test_publish_release.ps1') -Destination (Join-Path $source 'tests') -Force
 foreach($f in @('MaintenanceUiTests.cs','test_network_setup.ps1')){if(Test-Path (Join-Path $root "tests\$f")){Copy-Item -LiteralPath (Join-Path $root "tests\$f") -Destination (Join-Path $source 'tests') -Force}}
-foreach($f in @('analyze_windows.py','build_app.ps1','build_native.ps1','find_cmake.ps1','get_driver.ps1','get_presentmon.ps1','package.ps1','publish_release.ps1','Install-Driver.ps1','Install-Network.ps1','Inspect-System.ps1','render_icons.py')){Copy-Item -LiteralPath (Join-Path $PSScriptRoot $f) -Destination (Join-Path $source 'tools') -Force}
+foreach($f in @('analyze_windows.py','build_app.ps1','build_single.ps1','build_native.ps1','find_cmake.ps1','get_driver.ps1','get_presentmon.ps1','package.ps1','publish_release.ps1','Install-Driver.ps1','Install-Network.ps1','Inspect-System.ps1','render_icons.py')){Copy-Item -LiteralPath (Join-Path $PSScriptRoot $f) -Destination (Join-Path $source 'tools') -Force}
 foreach($f in @('StatusProbe.cs','DiscoveryTests.cs','PrimaryDisplayProbe.cs','ProtocolTests.cs','TwoMachineTests.cs','crypto_test.cpp','rio_crypto_transport_test.cpp','build_tests.ps1','PairCodeProbe.cs','GuiProbe.cs','GuiActions.cs','HostCursorProbe.cs','ClientCursorProbe.cs','DesktopGpuDocument.cpp')){Copy-Item -LiteralPath (Join-Path $root "tests\$f") -Destination (Join-Path $source 'tests') -Force}
 foreach($f in @('measure_constant_cadence.ps1','analyze_constant_cadence.py','validate_full_chain_hud.ps1','measure_165_frame_drops.ps1','analyze_165_frame_drops.py','frame_datagram_schedule_test.cpp','datagram_slot_pool_test.cpp','datagram_sender_loopback_test.cpp','decoder_sequence_regression_test.cpp','verify_frame_schedule.ps1','ReconnectLeaseTests.cs','verify_reconnect_lease.ps1')){Copy-Item -LiteralPath (Join-Path $root "tests\$f") -Destination (Join-Path $source 'tests') -Force}
 Copy-Item -LiteralPath (Join-Path $root 'third_party\licenses') -Destination (Join-Path $source 'third_party') -Recurse -Force
@@ -69,5 +71,5 @@ $sourceHashes=Get-ChildItem $source -Recurse -File|Where-Object {$_.Name -ne 'SH
  "$((Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant())  $($_.FullName.Substring($source.Length+1))"
 }
 $sourceHashes|Set-Content (Join-Path $source 'SHA256SUMS.txt') -Encoding ASCII
-Save-PackageArtifact (Join-Path $dist 'PyroScreen-Source-0.1-preview.zip')
-Compress-Archive -Path $source -DestinationPath (Join-Path $dist 'PyroScreen-Source-0.1-preview.zip')
+Save-PackageArtifact (Join-Path $dist 'SideWave-Source-0.1-preview.zip')
+Compress-Archive -Path $source -DestinationPath (Join-Path $dist 'SideWave-Source-0.1-preview.zip')

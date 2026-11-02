@@ -1,18 +1,23 @@
 param([Parameter(Mandatory=$true)][string]$AppPath)
 $ErrorActionPreference='Stop'
 [Console]::OutputEncoding=New-Object System.Text.UTF8Encoding
-$receiver=Join-Path (Split-Path -LiteralPath $AppPath) 'PyroScreen-Receiver.exe'
-if(-not (Test-Path -LiteralPath $receiver)){throw 'PyroScreen-Receiver.exe is missing.'}
+# Remove what the version released under the previous name installed.
+Get-NetFirewallRule -PolicyStore PersistentStore -Group 'PyroScreen' -ErrorAction SilentlyContinue | Remove-NetFirewallRule -ErrorAction SilentlyContinue
+Get-ScheduledTask -TaskName 'PyroScreen-DisplayLatency-*' -ErrorAction SilentlyContinue | Unregister-ScheduledTask -Confirm:$false -ErrorAction SilentlyContinue
+Get-CimInstance Win32_Process -Filter "Name='PyroScreen.exe'" | Where-Object {$_.ExecutablePath -like (Join-Path $env:ProgramFiles 'PyroScreen\*')} | ForEach-Object {Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue}
+Remove-Item -LiteralPath (Join-Path $env:ProgramFiles 'PyroScreen') -Recurse -Force -ErrorAction SilentlyContinue
+$receiver=Join-Path (Split-Path -LiteralPath $AppPath) 'SideWave-Receiver.exe'
+if(-not (Test-Path -LiteralPath $receiver)){throw 'SideWave-Receiver.exe is missing.'}
 $specs=@(
- @{Name='PyroScreen control';Program=$AppPath;Protocol='TCP';Port='55166'},
+ @{Name='SideWave control';Program=$AppPath;Protocol='TCP';Port='55166'},
  # Sender discovery uses an ephemeral reply port; scope by program and subnet.
- @{Name='PyroScreen discovery';Program=$AppPath;Protocol='UDP';Port='Any'},
- @{Name='PyroScreen video';Program=$receiver;Protocol='UDP';Port='55165'}
+ @{Name='SideWave discovery';Program=$AppPath;Protocol='UDP';Port='Any'},
+ @{Name='SideWave video';Program=$receiver;Protocol='UDP';Port='55165'}
 )
 foreach($spec in $specs){
  $rules=@(Get-NetFirewallRule -PolicyStore PersistentStore -DisplayName $spec.Name -ErrorAction SilentlyContinue)
  if($rules.Count){$rules | Remove-NetFirewallRule -ErrorAction Stop}
- New-NetFirewallRule -DisplayName $spec.Name -Group 'PyroScreen' -Direction Inbound -Action Allow -Enabled True -Program $spec.Program -Protocol $spec.Protocol -LocalPort $spec.Port -RemoteAddress LocalSubnet -Profile Private | Out-Null
+ New-NetFirewallRule -DisplayName $spec.Name -Group 'SideWave' -Direction Inbound -Action Allow -Enabled True -Program $spec.Program -Protocol $spec.Protocol -LocalPort $spec.Port -RemoteAddress LocalSubnet -Profile Private | Out-Null
 }
 foreach($spec in $specs){
  $rule=Get-NetFirewallRule -PolicyStore ActiveStore -DisplayName $spec.Name -ErrorAction Stop
@@ -24,4 +29,4 @@ foreach($spec in $specs){
  })
  if(-not $valid.Count){throw ('Firewall rule verification failed: '+$spec.Name)}
 }
-Write-Output 'Verified 3 private-network firewall rules for this copy of PyroScreen.'
+Write-Output 'Verified 3 private-network firewall rules for this copy of SideWave.'

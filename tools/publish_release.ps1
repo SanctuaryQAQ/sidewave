@@ -6,7 +6,7 @@ $ErrorActionPreference='Stop'
 $project=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $release=if($ReleaseRoot){[IO.Path]::GetFullPath($ReleaseRoot)}else{Join-Path $project 'dist'}
 $source=[IO.Path]::GetFullPath($SourceDirectory)
-$current=Join-Path $release 'PyroScreen'
+$current=Join-Path $release 'SideWave'
 $archives=Join-Path $release 'archive'
 $stage=Join-Path $release ('.release-'+[Guid]::NewGuid().ToString('N'))
 
@@ -71,7 +71,7 @@ if(Test-Path -LiteralPath $archives){
  if((Get-Item -LiteralPath $archives -Force).Attributes -band [IO.FileAttributes]::ReparsePoint){throw 'Archive directory must not be a reparse point.'}
 }
 $inventory=Get-Inventory $source
-foreach($required in @('PyroScreen.exe','MainWindow.xaml','libpyrowave-shared-1.dll','PyroScreen-Sender.exe','PyroScreen-Receiver.exe','PyroScreen-Display.exe')){
+foreach($required in @('SideWave.exe','MainWindow.xaml','libpyrowave-shared-1.dll','SideWave-Sender.exe','SideWave-Receiver.exe','SideWave-Display.exe')){
  if(-not $inventory.ContainsKey($required)){throw "Incomplete release bundle: $required"}
 }
 Assert-Manifest $source $inventory
@@ -80,10 +80,10 @@ $lock=$null;$oldArchive=$null
 try {
  $lock=[IO.File]::Open((Join-Path $release '.publish.lock'),[IO.FileMode]::OpenOrCreate,[IO.FileAccess]::ReadWrite,[IO.FileShare]::None)
  if(Test-Path -LiteralPath $current){
-  if(-not(Test-Path -LiteralPath (Join-Path $current 'PyroScreen.exe') -PathType Leaf)){throw 'Existing PyroScreen directory is not a release bundle.'}
+  if(-not(Test-Path -LiteralPath (Join-Path $current 'SideWave.exe') -PathType Leaf)){throw 'Existing SideWave directory is not a release bundle.'}
   $oldInventory=Get-Inventory $current
   if(Test-SameInventory $inventory $oldInventory){
-   [pscustomobject]@{Status='Unchanged';Executable=(Join-Path $current 'PyroScreen.exe');Archive=$null;Files=$inventory.Count}
+   [pscustomobject]@{Status='Unchanged';Executable=(Join-Path $current 'SideWave.exe');Archive=$null;Files=$inventory.Count}
    return
   }
   # Fail before the swap if a running engine or application locks its executable.
@@ -91,7 +91,7 @@ try {
    try{$probe=[IO.File]::Open($exe.FullName,[IO.FileMode]::Open,[IO.FileAccess]::Read,[IO.FileShare]::None);$probe.Dispose()}
    catch{
     if($_.Exception.GetBaseException() -is [UnauthorizedAccessException]){throw "Cannot access release executable: $($exe.FullName)"}
-    throw "Exit PyroScreen from its tray menu before updating. Locked executable: $($exe.Name)"
+    throw "Exit SideWave from its tray menu before updating. Locked executable: $($exe.Name)"
    }
   }
  }
@@ -102,7 +102,7 @@ try {
  if(-not(Test-SameInventory $inventory $stagedInventory)){throw 'Staged release differs from the source bundle.'}
  if(Test-Path -LiteralPath $current){
   New-Item -ItemType Directory -Path $archives -Force|Out-Null
-  $oldArchive=Join-Path $archives ('PyroScreen-'+[DateTime]::UtcNow.ToString('yyyyMMdd-HHmmss-fff')+'Z-'+[Guid]::NewGuid().ToString('N').Substring(0,8))
+  $oldArchive=Join-Path $archives ('SideWave-'+[DateTime]::UtcNow.ToString('yyyyMMdd-HHmmss-fff')+'Z-'+[Guid]::NewGuid().ToString('N').Substring(0,8))
   Assert-ChildPath $oldArchive
   if(Test-Path -LiteralPath $oldArchive){throw 'Archive path already exists.'}
   Move-Item -LiteralPath $current -Destination $oldArchive
@@ -119,7 +119,7 @@ try {
   if($oldArchive -and (Test-Path -LiteralPath $oldArchive)){Move-Item -LiteralPath $oldArchive -Destination $current}
   throw
  }
- [pscustomobject]@{Status='Updated';Executable=(Join-Path $current 'PyroScreen.exe');Archive=$oldArchive;Files=$inventory.Count}
+ [pscustomobject]@{Status='Updated';Executable=(Join-Path $current 'SideWave.exe');Archive=$oldArchive;Files=$inventory.Count}
 } finally {
  if($lock){$lock.Dispose()}
  if(Test-Path -LiteralPath $stage){

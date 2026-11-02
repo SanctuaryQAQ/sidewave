@@ -2,9 +2,9 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.Windows.Automation;
-namespace PyroScreenTests {
+namespace SideWaveTests {
 class GuiActions{
- static void Record(string suffix,string value){try{File.WriteAllText(Path.Combine(Path.GetTempPath(),"pyroscreen-gui-action"+suffix),value);}catch{}}
+ static void Record(string suffix,string value){try{File.WriteAllText(Path.Combine(Path.GetTempPath(),"sidewave-gui-action"+suffix),value);}catch{}}
  [STAThread]public static int Main(string[] args){
   if(args.Length!=3)return 1;
   string stage="find window";

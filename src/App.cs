@@ -19,7 +19,7 @@ using System.Runtime.InteropServices;
 using System.Windows.Interop;
 using Microsoft.Win32;
 using Forms=System.Windows.Forms;
-namespace PyroScreen {
+namespace SideWave {
 class App {
  static string backendOverride;
  static bool? segmentationOverride;
@@ -80,7 +80,7 @@ class App {
   new Thread(Activation){IsBackground=true,Name="Show existing window"}.Start();
   window.Show();
  }
- static string PipeName(){return "PyroScreen-"+WindowsIdentity.GetCurrent().User.Value;}
+ static string PipeName(){return "SideWave-"+WindowsIdentity.GetCurrent().User.Value;}
  void Activation(){
   var security=new PipeSecurity();security.AddAccessRule(new PipeAccessRule(WindowsIdentity.GetCurrent().User,PipeAccessRights.FullControl,AccessControlType.Allow));
   while(!stop)try{
@@ -225,8 +225,8 @@ class App {
  void InitStartup(){
   bool enabled=false;
   using(var key=Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Run")){
-   if(key!=null){enabled=key.GetValue("PyroScreen")!=null;
-    if(!enabled&&key.GetValue("PyroScreenClient")!=null){SetStartup(true);enabled=true;}}
+   if(key!=null){enabled=key.GetValue("SideWave")!=null;
+    if(!enabled&&(key.GetValue("PyroScreen")!=null||key.GetValue("PyroScreenClient")!=null)){SetStartup(true);enabled=true;}}
   }
   C<CheckBox>("Startup").IsChecked=enabled;
   C<CheckBox>("Startup").ToolTip="登录后在托盘运行上次模式；发送模式使用已保存的自动连接设置。";
@@ -240,9 +240,9 @@ class App {
  }
  void SetStartup(bool enabled){
   using(var key=Registry.CurrentUser.CreateSubKey(@"Software\Microsoft\Windows\CurrentVersion\Run")){
-   if(enabled)key.SetValue("PyroScreen",Engine.Q(Process.GetCurrentProcess().MainModule.FileName)+" --tray");
-   else key.DeleteValue("PyroScreen",false);
-   key.DeleteValue("PyroScreenClient",false);
+   if(enabled)key.SetValue("SideWave",Engine.Q(Process.GetCurrentProcess().MainModule.FileName)+" --tray");
+   else key.DeleteValue("SideWave",false);
+   key.DeleteValue("PyroScreen",false);key.DeleteValue("PyroScreenClient",false);
   }
  }
  void InitHost(){
@@ -462,11 +462,12 @@ class App {
  }
  static bool SavedReceive(){try{return Json.S(Json.Read(File.ReadAllText(Path.Combine(Paths.Root,"app.json"))),"mode","receive")!="send";}catch{return true;}}
  [STAThread] public static int Main(string[] args){
+  int unpacked;if(SingleFile.TryRun(args,out unpacked))return unpacked;
   if(args.Contains("--display-latency-broker"))try{return FullChainLatency.Broker();}catch(Exception e){Paths.Log("display-latency",e.ToString());return 1;}
   if(args.Contains("--setup-display-latency"))try{return FullChainLatency.Install();}catch(Exception e){Paths.Log("display-latency",e.ToString());return 1;}
   if(LocalControl.IsRequest(args))try{return LocalControl.Run(args);}catch(Exception e){Paths.Log("control",e.Message);return 1;}
   try{
-   Paths.Init();Language.Load();
+   Paths.Init();Paths.MigrateLegacy();Language.Load();
    if(args.Contains("--udp-segmented"))segmentationOverride=true;
    if(args.Contains("--udp-iocp"))segmentationOverride=false;
    string backendArg=args.FirstOrDefault(v=>v.StartsWith("--display-backend="));
@@ -476,7 +477,7 @@ class App {
    string userArg=args.FirstOrDefault(v=>v.StartsWith("--setup-user="));
    if(args.Contains("--setup-firewall"))return SetupActions.Firewall(resultArg==null?null:resultArg.Substring(15),userArg==null?null:userArg.Substring(13));
    if(args.Contains("--setup-driver"))return SetupActions.Driver(resultArg==null?null:resultArg.Substring(15));
-   bool created;using(var mutex=new Mutex(true,@"Local\PyroScreen-"+WindowsIdentity.GetCurrent().User.Value,out created)){
+   bool created;using(var mutex=new Mutex(true,@"Local\SideWave-"+WindowsIdentity.GetCurrent().User.Value,out created)){
     if(!created){
      try{using(var pipe=new NamedPipeClientStream(".",PipeName(),PipeDirection.Out)){pipe.Connect(2000);string command=args.Contains("--send")?"SEND":args.Contains("--receive")?"RECV":"SHOW";byte[] bytes=System.Text.Encoding.ASCII.GetBytes(command);pipe.Write(bytes,0,4);}return 0;}
      catch(Exception e){Paths.Log("startup",e.ToString());MessageBox.Show(Language.Tr("SideWave 已在运行："+e.Message));return 1;}

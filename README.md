@@ -17,7 +17,7 @@
 - **GPU video path.** PyroWave wavelet encoding and decoding on the GPU, SDR 4:4:4 full range, 60 / 120 / 165 / 240 FPS.
 - **Built for latency.** Captures desktop updates immediately, with optional changed-region frames, tearing-allowed presentation and a receiver hardware cursor.
 - **Paired and private.** TLS 1.2 control channel, one-time 16-character pairing code, credentials protected with Windows DPAPI, optional AES-256-GCM video.
-- **One portable app.** The same executable sends or receives; LAN discovery, tray icon, start with Windows, Chinese and English UI.
+- **One file.** The same `SideWave.exe` sends or receives; LAN discovery, tray icon, start with Windows, Chinese and English UI.
 
 ## How it works
 
@@ -31,7 +31,7 @@
 
 ## Quick start
 
-1. Download the same release on both PCs, unzip it and run `PyroScreen.exe` (SideWave keeps its original executable name).
+1. Download `SideWave.exe` on both PCs and double-click it. There is nothing to install. It unpacks itself to `%LOCALAPPDATA%\SideWave\app` and runs from there. The app is not code signed yet, so Windows SmartScreen may ask you to confirm: choose **More info › Run anyway**.
 2. On each PC click **Network setup** once and approve the Windows prompt. This allows the app on Private networks only.
 3. **On the receiver**, stay in Receive mode (the default on first launch).
 
@@ -74,7 +74,7 @@ Paired devices reconnect without a code. Closing the window keeps SideWave in th
 
 - Preview software. Not yet validated: other GPU vendors, HDR, rotated displays, several receivers at once, audio. The receiver uses its primary screen.
 - Discovery needs both PCs in one broadcast domain. Guest Wi-Fi isolation, VLANs or third-party firewalls can hide the receiver; enter its IP address instead.
-- Settings and pairings live in `%LOCALAPPDATA%\PyroScreen`. Never share that folder: it identifies your paired devices.
+- Settings and pairings live in `%LOCALAPPDATA%\SideWave`. Never share that folder: it identifies your paired devices.
 - If the link drops during high-bitrate streaming, update the network adapter driver or choose a lower quality budget.
 
 ## Build from source

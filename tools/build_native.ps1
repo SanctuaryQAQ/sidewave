@@ -18,11 +18,11 @@ if(-not(Test-Path $lib)){throw 'Build the pinned PyroWave shared library first.'
 $includes=@("/I$EngineRoot","/I$(Join-Path $EngineRoot 'Granite\third_party\khronos\vulkan-headers\include')")
 Push-Location $output
 try{
- foreach($job in @(@('pyrowave_2k165_gpu_bench.cpp','PyroScreen-Sender.exe'),@('pyrowave_udp_client.cpp','PyroScreen-Receiver.exe'))){
+ foreach($job in @(@('pyrowave_2k165_gpu_bench.cpp','SideWave-Sender.exe'),@('pyrowave_udp_client.cpp','SideWave-Receiver.exe'))){
   & cl.exe /nologo /O2 /MT /EHsc /std:c++17 @includes (Join-Path $root "native\$($job[0])") "/Fe:$($job[1])" /link $lib d3d11.lib d3d12.lib d3dcompiler.lib dxgi.lib ws2_32.lib user32.lib gdi32.lib /SUBSYSTEM:WINDOWS /ENTRY:wmainCRTStartup
   if($LASTEXITCODE){throw "Native build failed: $($job[0])"}
  }
- & cl.exe /nologo /O2 /MT /EHsc /std:c++17 (Join-Path $root 'native\display_lease.cpp') /Fe:PyroScreen-Display.exe /link /SUBSYSTEM:WINDOWS /ENTRY:wmainCRTStartup
+ & cl.exe /nologo /O2 /MT /EHsc /std:c++17 (Join-Path $root 'native\display_lease.cpp') /Fe:SideWave-Display.exe /link /SUBSYSTEM:WINDOWS /ENTRY:wmainCRTStartup
  if($LASTEXITCODE){throw 'Display helper build failed'}
  & cl.exe /nologo /O2 /MT /EHsc /std:c++17 (Join-Path $root 'tests\crypto_test.cpp') /Fe:CryptoTests.exe /link /SUBSYSTEM:WINDOWS /ENTRY:wmainCRTStartup
  if($LASTEXITCODE){throw 'Crypto test build failed'}

@@ -344,7 +344,7 @@ public:
  ~DatagramSender(){Stop();}
 };
 
-#ifdef PYROSCREEN_DATAGRAM_UNIT_TEST
+#ifdef SIDEWAVE_DATAGRAM_UNIT_TEST
 } // The loopback regression exercises the exact production sender class.
 #else
 bool check(pyrowave_result result, const char *operation)
@@ -428,7 +428,7 @@ int wmain(int argc, wchar_t **argv)
 	bool captureRequested = false;
 	bool sendRequested = false;
  bool traceStages=false;
-#ifdef PYROSCREEN_TEST_STAGE_TRACE_DEFAULT
+#ifdef SIDEWAVE_TEST_STAGE_TRACE_DEFAULT
  traceStages=true;
 #endif
 	std::wstring secretFile;
@@ -484,7 +484,7 @@ int wmain(int argc, wchar_t **argv)
   else if (std::wstring(argv[i]) == L"--client-cursor") clientCursor=true;
 		else { std::fprintf(stderr, "invalid arguments\n"); return 1; }
 	}
-#ifdef PYROSCREEN_TEST_RIO_DEFAULT
+#ifdef SIDEWAVE_TEST_RIO_DEFAULT
  // Development comparison build; never enabled in portable release packaging.
  sendRio=true;sendIocp=false;udpSegmented=false;sendConnected=false;
 #endif
@@ -778,7 +778,7 @@ int wmain(int argc, wchar_t **argv)
 	std::vector<uint8_t> patch(192 * 240 * 4);
 	std::vector<uint8_t> bitstream(maxFrameBytes + 65536);
 	std::vector<pyrowave_packet> packets(maxFrameBytes / PacketBytes + 2048);
- wchar_t traceRuntime[32768]{};DWORD traceLength=GetEnvironmentVariableW(L"PYROSCREEN_RUNTIME",traceRuntime,32768);
+ wchar_t traceRuntime[32768]{};DWORD traceLength=GetEnvironmentVariableW(L"SIDEWAVE_RUNTIME",traceRuntime,32768);
  StageTraceWriter stageTrace(traceStages&&traceLength&&traceLength<32768?std::wstring(traceRuntime)+L"\\sender-stages.jsonl":L"");
 	std::unique_ptr<DatagramSender> networkSender;
 	if(sendPacingMbps>0&&(udpSegmented||sendRio)){std::fprintf(stderr,"Datagram pacing requires the normal IOCP transport\n");return 1;}
@@ -806,10 +806,10 @@ int wmain(int argc, wchar_t **argv)
  std::vector<double> livePublishIntervals,liveOverwriteAges;
  uint64_t liveAccumulatedSourceFrames=0;
 	auto liveReportStart = start;
- wchar_t runtimeBuffer[32768]{};DWORD runtimeLength=GetEnvironmentVariableW(L"PYROSCREEN_RUNTIME",runtimeBuffer,32768);
+ wchar_t runtimeBuffer[32768]{};DWORD runtimeLength=GetEnvironmentVariableW(L"SIDEWAVE_RUNTIME",runtimeBuffer,32768);
  std::wstring liveStatsPath;
  if(runtimeLength&&runtimeLength<32768)liveStatsPath=std::wstring(runtimeBuffer)+L"\\sender-live.json";
- else{wchar_t legacy[MAX_PATH]{};DWORD length=GetEnvironmentVariableW(L"LOCALAPPDATA",legacy,MAX_PATH);liveStatsPath=length&&length<MAX_PATH?std::wstring(legacy)+L"\\PyroScreen\\runtime\\sender-live.json":L"sender-live.json";}
+ else{wchar_t legacy[MAX_PATH]{};DWORD length=GetEnvironmentVariableW(L"LOCALAPPDATA",legacy,MAX_PATH);liveStatsPath=length&&length<MAX_PATH?std::wstring(legacy)+L"\\SideWave\\runtime\\sender-live.json":L"sender-live.json";}
 	PyrowaveLiveStatsWriter liveStatsWriter(liveStatsPath);
 	auto writeLiveStats = [&]() {
 		const auto now = Clock::now();

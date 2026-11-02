@@ -64,7 +64,9 @@ class TwoMachineMatrix {
    double actual=span>0?(Number(last,"presented_frames")-Number(first,"presented_frames"))/span:0;
    if(actual<=0)throw new Exception("Telemetry shows no presented frames.");
    int target=Math.Min(fps,link.VirtualHz>0?link.VirtualHz:fps);
-   bool low=actual<target*.80;
+   // Without tearing, presentation waits for the receiver panel; the sender rate still sets the limit below.
+   int floor=!settings.AllowTearing&&link.PanelHz>0?Math.Min(target,link.PanelHz):target;
+   bool low=actual<floor*.80;
    if(actual>target*1.25+2)throw new Exception("Frame rate "+actual.ToString("F1")+" above the sender limit for "+target+".");
    if(low)lowFps++;else passed++;
    Record(new{test=name,status=low?"low-fps":"pass",ms=timer.ElapsedMilliseconds,width,height,requested=fps,virtualHz=link.VirtualHz,fps=Math.Round(actual,1),
@@ -127,7 +129,10 @@ class TwoMachineMatrix {
    Measure("video after stop",2560,1440,120,600,6);
    Step("sender crash",()=>{using(var sender=Process.GetProcessById(link.SenderPid)){sender.Kill();sender.WaitForExit(5000);}Thread.Sleep(1000);if(link.Streaming)throw new Exception("Crash not detected.");link.RecoverVideo();});
    Measure("video after sender crash",2560,1440,120,600,6,false);
-   Step("receiver crash",()=>{Hook("kill-receiver");Thread.Sleep(3000);});
+   // Same sequence as the app: telemetry reports the exit, video stops, then Apply restarts it.
+   Step("receiver crash",()=>{Hook("kill-receiver");
+    for(int wait=0;wait<20;wait++){Thread.Sleep(500);if(Json.S(link.Stats(),"alive")=="False"){link.StopVideo();return;}}
+    throw new Exception("Receiver exit was not reported.");});
    Measure("video after receiver crash",2560,1440,120,600,6);
    Step("disconnect releases the display",()=>{link.Disconnect();if(link.HasDisplay)throw new Exception("Display still leased.");});
    Measure("video after reconnect",2560,1440,120,600,6);

@@ -337,6 +337,9 @@ class DisplayLease:IDisposable {
  public void Apply(int w,int h,int fps,string backend){
   int id=Alive?++request:0;
   if(id==0){
+   // Without this check a missing driver only surfaces as a vague error after a long wait.
+   if(backend=="vdd"&&Directory.GetDirectories(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows),"System32","DriverStore","FileRepository"),"mttvdd.inf_*").Length==0)
+    throw new IOException("未安装虚拟显示驱动。请点击“虚拟屏驱动”完成安装后再连接。");
    request=0;
    string args="--backend "+backend+" --device-id "+deviceId+" --status-file "+Engine.Q(status)+" --width "+w+" --height "+h+" --refresh "+fps+" --parent "+Process.GetCurrentProcess().Id;
    bool admin=new System.Security.Principal.WindowsPrincipal(System.Security.Principal.WindowsIdentity.GetCurrent()).IsInRole(System.Security.Principal.WindowsBuiltInRole.Administrator);

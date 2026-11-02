@@ -8,6 +8,8 @@ foreach($r in $refs){$arguments+="/reference:$(Join-Path $framework $r)"}
 if($LASTEXITCODE){throw 'Protocol test build failed'}
 & (Join-Path $framework 'csc.exe') @arguments "/out:$(Join-Path $root 'build\bin\TwoMachineTests.exe')" (Join-Path $root 'src\Core.cs') (Join-Path $root 'src\Sessions.cs') (Join-Path $root 'src\FullChainLatency.cs') (Join-Path $PSScriptRoot 'TwoMachineTests.cs')
 if($LASTEXITCODE){throw 'Two-machine test build failed'}
+& (Join-Path $framework 'csc.exe') @arguments "/out:$(Join-Path $root 'build\bin\TwoMachineMatrix.exe')" (Join-Path $root 'src\Core.cs') (Join-Path $root 'src\Sessions.cs') (Join-Path $root 'src\FullChainLatency.cs') (Join-Path $PSScriptRoot 'TwoMachineMatrix.cs')
+if($LASTEXITCODE){throw 'Two-machine test build failed'}
 & (Join-Path $framework 'csc.exe') @arguments "/out:$(Join-Path $root 'build\bin\DiscoveryTests.exe')" (Join-Path $root 'src\Core.cs') (Join-Path $PSScriptRoot 'DiscoveryTests.cs')
 if($LASTEXITCODE){throw 'Discovery test build failed'}
 & (Join-Path $framework 'csc.exe') @arguments "/out:$(Join-Path $root 'build\bin\PrimaryDisplayProbe.exe')" (Join-Path $root 'src\Core.cs') (Join-Path $PSScriptRoot 'PrimaryDisplayProbe.cs')

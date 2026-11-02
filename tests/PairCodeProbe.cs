@@ -6,7 +6,7 @@ class PairCodeProbe{
  [STAThread]public static int Main(string[] args){
   if(args.Length!=1)return 1;
   try{
-   var code=AutomationElement.RootElement.FindFirst(TreeScope.Descendants,new PropertyCondition(AutomationElement.NameProperty,"客户端配对码"));
+   var code=AutomationElement.RootElement.FindFirst(TreeScope.Descendants,new PropertyCondition(AutomationElement.NameProperty,"客户端配对码"))??AutomationElement.RootElement.FindFirst(TreeScope.Descendants,new PropertyCondition(AutomationElement.NameProperty,"Receiver pairing code"));
    if(code==null)throw new Exception("Client pairing field unavailable.");
    string value=((ValuePattern)code.GetCurrentPattern(ValuePattern.Pattern)).Current.Value;
    File.WriteAllText(args[0],value.Replace(" - ",""),System.Text.Encoding.UTF8);return 0;

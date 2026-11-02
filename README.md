@@ -6,8 +6,8 @@
 
 <p align="center"><b>English</b> · <a href="README.zh-CN.md">简体中文</a></p>
 
-> **0.1 preview.** Tested PC-to-laptop at 1920×1080 and 2560×1440 from 60 to 240 FPS.
-> Other GPU vendors, drivers and resolutions are still being validated.
+> **0.1 preview.** Tested from a desktop PC to a laptop, both with NVIDIA GPUs, from 1280×720 to 3840×2160 at 60 to 240 FPS.
+> Other GPU vendors and drivers are still being validated.
 
 <p align="center"><img src="docs/images/app.png" width="780" alt="SideWave sender window"></p>
 

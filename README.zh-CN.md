@@ -6,8 +6,8 @@
 
 <p align="center"><a href="README.md">English</a> · <b>简体中文</b></p>
 
-> **0.1 预览版。** 已完成台式机到笔记本的双机测试，覆盖 1920×1080、2560×1440 下 60–240 FPS。
-> 其他厂商 GPU、驱动和分辨率仍在验证中。
+> **0.1 预览版。** 已完成台式机到笔记本的双机测试（两台都是 NVIDIA 显卡），覆盖 1280×720 到 3840×2160、60–240 FPS。
+> 其他厂商 GPU 和驱动仍在验证中。
 
 <p align="center"><img src="docs/images/app.zh-CN.png" width="780" alt="SideWave 发送模式界面"></p>
 

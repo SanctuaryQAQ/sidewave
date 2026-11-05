@@ -1,6 +1,6 @@
 # Preview validation, 2026-10-05
 
-This is a preview, not a stability guarantee across hardware or networks.
+These results are not a stability guarantee across hardware or networks.
 Measurements below use a real Windows virtual desktop and scrolling project
 documents, a wired LAN, and a native 2560x1440 / 165 Hz client panel.
 The existing development display driver was used while the packaged official

@@ -44,8 +44,8 @@ function Save-PackageArtifact([string]$Path){
  $hashes|Set-Content (Join-Path $out 'SHA256SUMS.txt') -Encoding ASCII
  & (Join-Path $PSScriptRoot 'publish_release.ps1') -SourceDirectory $out -ReleaseRoot $dist
  $out=Join-Path $dist 'SideWave'
- Save-PackageArtifact (Join-Path $dist 'SideWave-0.1-preview.zip')
- Compress-Archive -Path $out -DestinationPath (Join-Path $dist 'SideWave-0.1-preview.zip')
+ Save-PackageArtifact (Join-Path $dist 'SideWave-0.2.zip')
+ Compress-Archive -Path $out -DestinationPath (Join-Path $dist 'SideWave-0.2.zip')
  Save-PackageArtifact (Join-Path $dist 'SideWave.exe')
  & (Join-Path $PSScriptRoot 'build_single.ps1') -BundleDirectory $out -Output (Join-Path $dist 'SideWave.exe')
  } finally {
@@ -59,7 +59,7 @@ Save-PackageArtifact $source
 New-Item -ItemType Directory -Path $source -Force|Out-Null
 foreach($d in @('src','native','assets','docs','.github')){if(Test-Path (Join-Path $root $d)){Copy-Item -LiteralPath (Join-Path $root $d) -Destination $source -Recurse -Force}}
 New-Item -ItemType Directory -Path (Join-Path $source 'tools'),(Join-Path $source 'third_party'),(Join-Path $source 'tests') -Force|Out-Null
-foreach($f in @('SenderRecoveryTests.cs','verify_sender_recovery.ps1')){Copy-Item -LiteralPath (Join-Path $root "tests\$f") -Destination (Join-Path $source 'tests') -Force}
+foreach($f in @('SenderRecoveryTests.cs','AdaptiveBitrateTests.cs','verify_sender_recovery.ps1')){Copy-Item -LiteralPath (Join-Path $root "tests\$f") -Destination (Join-Path $source 'tests') -Force}
 Copy-Item -LiteralPath (Join-Path $root 'tests\test_publish_release.ps1') -Destination (Join-Path $source 'tests') -Force
 foreach($f in @('MaintenanceUiTests.cs','test_network_setup.ps1')){if(Test-Path (Join-Path $root "tests\$f")){Copy-Item -LiteralPath (Join-Path $root "tests\$f") -Destination (Join-Path $source 'tests') -Force}}
 foreach($f in @('analyze_windows.py','build_app.ps1','build_single.ps1','build_native.ps1','find_cmake.ps1','get_driver.ps1','get_presentmon.ps1','package.ps1','publish_release.ps1','Install-Driver.ps1','Install-Network.ps1','Inspect-System.ps1','render_icons.py')){Copy-Item -LiteralPath (Join-Path $PSScriptRoot $f) -Destination (Join-Path $source 'tools') -Force}
@@ -71,5 +71,5 @@ $sourceHashes=Get-ChildItem $source -Recurse -File|Where-Object {$_.Name -ne 'SH
  "$((Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant())  $($_.FullName.Substring($source.Length+1))"
 }
 $sourceHashes|Set-Content (Join-Path $source 'SHA256SUMS.txt') -Encoding ASCII
-Save-PackageArtifact (Join-Path $dist 'SideWave-Source-0.1-preview.zip')
-Compress-Archive -Path $source -DestinationPath (Join-Path $dist 'SideWave-Source-0.1-preview.zip')
+Save-PackageArtifact (Join-Path $dist 'SideWave-Source-0.2.zip')
+Compress-Archive -Path $source -DestinationPath (Join-Path $dist 'SideWave-Source-0.2.zip')

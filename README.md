@@ -6,7 +6,7 @@
 
 <p align="center"><b>English</b> · <a href="README.zh-CN.md">简体中文</a></p>
 
-> **0.1 preview.** Tested from a desktop PC to a laptop, both with NVIDIA GPUs, from 1280×720 to 3840×2160 at 60 to 240 FPS.
+> **0.2.** Tested from a desktop PC to a laptop, both with NVIDIA GPUs, from 1280×720 to 3840×2160 at 60 to 240 FPS.
 > Other GPU vendors and drivers are still being validated.
 
 <p align="center"><img src="docs/images/app.png" width="780" alt="SideWave sender window"></p>
@@ -59,6 +59,8 @@ Paired devices reconnect without a code. Closing the window keeps SideWave in th
 | Send changed regions only | Encodes only the part of the desktop that changed; full-screen motion still sends whole frames | Off |
 | Receiver hardware cursor | Draws the pointer with the receiver's own cursor instead of inside the video (experimental) | Off |
 | Packet loss protection (FEC) | Adds one parity fragment per packet to recover a single lost fragment | Off |
+| Send pacing | Spreads each frame's packets evenly at the link speed so a whole-frame burst does not overflow switch or router buffers | On |
+| Lower quality on packet loss | Reduces the per-frame data while the receiver keeps losing frames and raises it again once delivery is clean; undone if lowering it does not reduce loss | On |
 
 ## Network ports
 
@@ -72,7 +74,7 @@ Paired devices reconnect without a code. Closing the window keeps SideWave in th
 
 ## Known limitations
 
-- Preview software. Not yet validated: other GPU vendors, HDR, rotated displays, several receivers at once, audio. The receiver uses its primary screen.
+- Not yet validated: other GPU vendors, HDR, rotated displays, several receivers at once, audio. The receiver uses its primary screen.
 - Discovery needs both PCs in one broadcast domain. Guest Wi-Fi isolation, VLANs or third-party firewalls can hide the receiver; enter its IP address instead.
 - Settings and pairings live in `%LOCALAPPDATA%\SideWave`. Never share that folder: it identifies your paired devices.
 - If the link drops during high-bitrate streaming, update the network adapter driver or choose a lower quality budget.

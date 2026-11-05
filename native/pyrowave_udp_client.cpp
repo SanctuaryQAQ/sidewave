@@ -32,6 +32,7 @@
 #include "pyrowave_rio_receiver.h"
 #include "pyrowave_coalesced_receiver.h"
 #include "display_timing_map.h"
+#include "stream_scheduling.h"
 
 namespace {
 VideoCrypto videoCrypto;
@@ -535,6 +536,7 @@ int wmain(int argc, wchar_t **argv)
 {
 	// Match swap-chain pixels to the physical panel, including 150% scaling.
 	SetProcessDPIAware();
+	ApplyStreamScheduling("Receiver",true);
  wchar_t runtimeBuffer[32768]{};
  DWORD runtimeLength=GetEnvironmentVariableW(L"SIDEWAVE_RUNTIME",runtimeBuffer,32768);
  std::wstring runtimeRoot;

@@ -227,8 +227,9 @@ class HostLink:IDisposable {
    File.Delete(Path.Combine(Paths.Runtime,"sender-live.json"));
    sender.Start("--capture-display "+Engine.Q(display.Display)+" --send-host "+Ip+" --send-bind-host "+((System.Net.IPEndPoint)tcp.Client.LocalEndPoint).Address.ToString()+" --port 55165 --width "+w+" --height "+h+
     " --target-fps "+fps+" --capture-fps "+EffectiveFps+" --constant-frame-rate"+(settings.CaptureBackpressure?" --capture-backpressure":"")+" --link-budget-mbps "+LinkBudgetMbps+" --measure-seconds 0 --max-frame-bytes "+bytes+
-    " --packet-bytes "+(settings.PacketProtection?settings.ProtectionPacketBytes:32768)+" --send-pacing-mbps "+Math.Min(settings.SendPacingMbps,LinkBudgetMbps)+" --send-window "+settings.SendWindow+" --send-buffer-bytes "+settings.SendBufferBytes+(settings.RioSend?" --send-rio":" --send-iocp")+(settings.ConnectedUdp?" --send-connected":"")+(settings.PipelinedSend?" --send-pipelined":"")+(settings.SkipImmediateSend?" --send-skip-immediate":"")+(settings.PartialFrames&&partialSupported?" --partial-frames":"")+(settings.CaptureOnUpdate?" --capture-on-update":"")+(settings.ClientCursor?" --client-cursor":"")+" --chroma444"+(settings.UdpSegmentation?" --udp-segmented":"")+(settings.PacketProtection?" --fec --send-interleaved":"")+(settings.VideoEncryption?"":" --unencrypted-video")+" --secret-file "+Engine.Q(secretFile));
+    " --packet-bytes "+(settings.PacketProtection?settings.ProtectionPacketBytes:32768)+" --send-pacing-mbps "+(settings.SendPacingMbps<0?(settings.RioSend||settings.UdpSegmentation?0:LinkBudgetMbps):Math.Min(settings.SendPacingMbps,LinkBudgetMbps))+" --send-window "+settings.SendWindow+" --send-buffer-bytes "+settings.SendBufferBytes+(settings.RioSend?" --send-rio":" --send-iocp")+(settings.ConnectedUdp?" --send-connected":"")+(settings.PipelinedSend?" --send-pipelined":"")+(settings.SkipImmediateSend?" --send-skip-immediate":"")+(settings.PartialFrames&&partialSupported?" --partial-frames":"")+(settings.CaptureOnUpdate?" --capture-on-update":"")+(settings.ClientCursor?" --client-cursor":"")+" --chroma444"+(settings.UdpSegmentation?" --udp-segmented":"")+(settings.PacketProtection?" --fec --send-interleaved":"")+(settings.VideoEncryption?"":" --unencrypted-video")+" --secret-file "+Engine.Q(secretFile));
    Thread.Sleep(700);sender.Ensure();
+   Bitrate.Reset();
    VideoRequested=true;
    settings.Width=w;settings.Height=h;settings.Fps=fps;settings.BudgetMbps=budget;settings.Save("host");
    appliedEncryption=settings.VideoEncryption;appliedProtection=settings.PacketProtection;appliedSegmentation=settings.UdpSegmentation;appliedTearing=settings.AllowTearing;appliedClientCursor=settings.ClientCursor;
@@ -241,6 +242,19 @@ class HostLink:IDisposable {
   }catch{try{StopVideo();}catch{}throw;}
  }
  public Dictionary<string,object> Stats(){if(wire==null)return null;return wire.Call(new{type="stats"});}
+ public readonly AdaptiveBitrate Bitrate=new AdaptiveBitrate();
+ // Receiver loss feedback; adjusts the running sender without restarting it.
+ public void ObserveDelivery(Dictionary<string,object> data){
+  if(!Streaming)return;
+  double before=Bitrate.Scale;
+  if(!settings.AdaptiveBitrate){
+   if(before<1){Bitrate.Reset();sender.Command("budget-scale 1");Paths.Log("host","Adaptive bitrate disabled; full budget restored.");}
+   return;
+  }
+  if(!Bitrate.Observe(DateTime.UtcNow,Json.L(data,"network_started_frames"),Json.L(data,"network_incomplete_frames")))return;
+  sender.Command("budget-scale "+Bitrate.Scale.ToString("0.000",System.Globalization.CultureInfo.InvariantCulture));
+  Paths.Log("host","Adaptive bitrate "+before.ToString("0.00")+" -> "+Bitrate.Scale.ToString("0.00")+", incomplete frames "+(Bitrate.LastLoss*100).ToString("0.0")+"%");
+ }
  public void StopVideo(){
   VideoRequested=false;
   ReceiverPid=0;sender.Stop();if(wire!=null)wire.Call(new{type="stop"});

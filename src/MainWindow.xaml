@@ -404,6 +404,14 @@
          <CheckBox Name="PacketProtection" Style="{StaticResource OptionRow}" ToolTip="每个视频数据包增加一片校验数据，可恢复一片丢失；点应用后生效。">
           <StackPanel Orientation="Horizontal"><TextBlock Text="丢包保护"/><TextBlock Text="FEC" Style="{StaticResource OptionNote}"/></StackPanel>
          </CheckBox>
+         <Border Height="1" Background="{StaticResource Hairline}"/>
+         <CheckBox Name="SendPacing" Style="{StaticResource OptionRow}" ToolTip="按网线速度均匀发出每一帧的数据包，避免整帧突发塞满路由器或交换机缓冲而丢包；不增加延迟，但发送时会占用一个 CPU 核。点应用后生效。">
+          <StackPanel Orientation="Horizontal"><TextBlock Text="发送整形"/><TextBlock Text="平滑发送" Style="{StaticResource OptionNote}"/></StackPanel>
+         </CheckBox>
+         <Border Height="1" Background="{StaticResource Hairline}"/>
+         <CheckBox Name="AdaptiveBitrate" Style="{StaticResource OptionRow}" ToolTip="副机持续丢帧时自动降低每帧数据量，网络恢复后逐步回升；若降低后丢帧没有减少，说明不是带宽问题，会恢复原画质。立即生效，不需要点应用。">
+          <TextBlock Text="丢包时自动降低画质"/>
+         </CheckBox>
         </StackPanel>
        </Border>
       </StackPanel>

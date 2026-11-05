@@ -31,6 +31,7 @@
 #include "stage_trace.h"
 #include "frame_datagram_schedule.h"
 #include "datagram_slot_pool.h"
+#include "stream_scheduling.h"
 
 namespace {
 VideoCrypto videoCrypto;
@@ -46,6 +47,23 @@ uint64_t UtcMs()
 	value.LowPart = ft.dwLowDateTime;
 	value.HighPart = ft.dwHighDateTime;
 	return (value.QuadPart - 116444736000000000ULL) / 10000ULL;
+}
+// The host scales the frame budget from receiver loss reports without a
+// restart: one "budget-scale <0.25..1>" line per change on stdin.
+std::atomic<double> runtimeBudgetScale{1.0};
+void ReadHostCommands()
+{
+	HANDLE input=GetStdHandle(STD_INPUT_HANDLE);
+	if(!input||input==INVALID_HANDLE_VALUE||GetFileType(input)!=FILE_TYPE_PIPE)return;
+	std::string line;char buffer[256];DWORD read=0;
+	while(ReadFile(input,buffer,sizeof(buffer),&read,nullptr)&&read){
+		for(DWORD i=0;i<read;++i){
+			if(buffer[i]!='\n'){if(line.size()<128)line.push_back(buffer[i]);continue;}
+			double scale=0;
+			if(std::sscanf(line.c_str(),"budget-scale %lf",&scale)==1&&scale>=0.25&&scale<=1.0)runtimeBudgetScale.store(scale);
+			line.clear();
+		}
+	}
 }
 int Width = 2560;
 int Height = 1440;
@@ -396,6 +414,8 @@ void update_patch(ID3D11DeviceContext *context, ID3D11Texture2D *texture,
 int wmain(int argc, wchar_t **argv)
 {
 	SetProcessDPIAware();
+	ApplyStreamScheduling("Sender",false);
+	std::thread(ReadHostCommands).detach();
 	std::wstring captureDisplay;
 	std::wstring sendHost;
 	unsigned short sendPort = 55165;
@@ -755,6 +775,9 @@ int wmain(int argc, wchar_t **argv)
  RECT damageHistory[2]{};bool damageHistoryValid[2]{};
  RECT lastPointer{};bool lastPointerValid=false;
  uint64_t lastFullFrame=0,lastSenderDrops=0;
+ // Kind of the last two published frames, newest first, and whether the
+ // previous encode already observed a send-mailbox drop.
+ bool publishedPartial[2]{};bool previousEncodeSawDrop=false;
  uint64_t totalPartialFrames=0,totalFullFrames=0;std::vector<double> livePartialArea;
  // Why a full frame was sent: no damage metadata, periodic refresh, sender drop, or damage too large.
  uint64_t fullUnknown=0,fullPeriodic=0,fullDropped=0,fullLarge=0,damageWithoutMetadata=0;std::vector<double> liveDamageArea;
@@ -825,7 +848,9 @@ int wmain(int argc, wchar_t **argv)
    // The 90th percentile still ignores isolated stalls. Adapt frame quality,
    // never the selected FPS, to keep the bounded mailbox from overwriting.
    const auto& deadlineSamples=(sendPipelined&&sendIocp&&sendContiguous&&!udpSegmented&&!sendRio)?liveSubmitMs:liveSendMs;
-   const double controlSendMs=constantFrameRate?percentile(deadlineSamples,0.90):percentile(deadlineSamples,0.50);
+   // Judge the send time at the unscaled budget; otherwise frames shrunk by
+   // receiver-loss scaling send faster and this loop grows the budget back.
+   const double controlSendMs=(constantFrameRate?percentile(deadlineSamples,0.90):percentile(deadlineSamples,0.50))/runtimeBudgetScale.load(std::memory_order_relaxed);
    if(controlSendMs>periodMs*0.95){
     size_t activeBudget=std::min(sendDeadlineBudget,size_t(rate.maximum_bitstream_size));
     sendDeadlineBudget=std::max<size_t>(65536,size_t(activeBudget*std::max(0.90,periodMs*0.90/controlSendMs)))&~size_t(3);
@@ -871,6 +896,10 @@ int wmain(int argc, wchar_t **argv)
   if(length>1&&length<int(sizeof(json))){
    length-=2;
    length+=std::snprintf(json+length,sizeof(json)-length,",\"udp_buffer_pressure_retries_total\":%llu}\n",(unsigned long long)(networkSender?networkSender->bufferPressureRetries.load():0));
+  }
+  if(length>1&&length<int(sizeof(json))){
+   length-=2;
+   length+=std::snprintf(json+length,sizeof(json)-length,",\"budget_scale\":%.3f}\n",runtimeBudgetScale.load(std::memory_order_relaxed));
   }
   if(length>1&&length<int(sizeof(json))){
    double areaMean=0;for(double a:livePartialArea)areaMean+=a;if(!livePartialArea.empty())areaMean/=double(livePartialArea.size());
@@ -1054,14 +1083,25 @@ int wmain(int argc, wchar_t **argv)
   if(stageTrace.Enabled())stages.t1=StageUtcUs();
 		release.sync.value = ++timeline;
   pyrowave_encoder frameEncoder=encoder;pyrowave_rate_control frameRate=rate;
+  // Receiver-loss scaling shrinks the encoded frame. rate stays the unscaled
+  // budget that the link and send-deadline controls below keep adjusting.
+  const double budgetScale=runtimeBudgetScale.load(std::memory_order_relaxed);
+  frameRate.maximum_bitstream_size=std::max<size_t>(65536,size_t(double(rate.maximum_bitstream_size)*budgetScale))&~size_t(3);
   VkRect2D crop{};bool partialFrame=false;
   if(partialFrames){
    const uint64_t drops=networkSender?networkSender->droppedFrames.load():0;
-   // A frame replaced in the send mailbox never reached the receiver.
-   bool full=damageUnknown||frame==0||frame-lastFullFrame>=uint64_t(CaptureFps)||drops!=lastSenderDrops;
-   if(damageUnknown)++fullUnknown;else if(drops!=lastSenderDrops)++fullDropped;else if(full)++fullPeriodic;
+   // A frame replaced in the send mailbox never reached the receiver. The
+   // previous publish overwrote the one before it; when both were partial,
+   // the newer one already resends the lost damage (history below). Forcing
+   // the largest frame then would only lengthen the send queue and cascade
+   // into further drops. A lost full frame or back-to-back drops still
+   // resynchronise with a full frame.
+   const bool sendDropped=drops!=lastSenderDrops;
+   const bool dropNeedsFull=sendDropped&&((!publishedPartial[1]&&publishedPartial[0])||previousEncodeSawDrop);
+   bool full=damageUnknown||frame==0||frame-lastFullFrame>=uint64_t(CaptureFps)||dropNeedsFull;
+   if(damageUnknown)++fullUnknown;else if(dropNeedsFull)++fullDropped;else if(full)++fullPeriodic;
    if(frameDamageValid)liveDamageArea.push_back(double(frameDamage.right-frameDamage.left)*(frameDamage.bottom-frameDamage.top)/(double(Width)*Height));
-   lastSenderDrops=drops;
+   lastSenderDrops=drops;previousEncodeSawDrop=sendDropped;
    // Resend the previous two frames' damage so one lost partial frame heals.
    RECT region=frameDamage;bool regionValid=frameDamageValid;
    for(int i=0;i<2;++i)if(damageHistoryValid[i])unite(region,regionValid,damageHistory[i]);
@@ -1076,7 +1116,7 @@ int wmain(int argc, wchar_t **argv)
      if(pyrowave_encoder partial=partialEncoderFor(cw,ch)){
       crop={{x,y},{uint32_t(cw),uint32_t(ch)}};partialFrame=true;frameEncoder=partial;
       // Same bits per pixel as the current full-frame budget.
-      frameRate.maximum_bitstream_size=std::max<size_t>(16384,size_t(double(rate.maximum_bitstream_size)*cw*ch/(double(Width)*Height)))&~size_t(3);
+      frameRate.maximum_bitstream_size=std::max<size_t>(16384,size_t(double(rate.maximum_bitstream_size)*budgetScale*cw*ch/(double(Width)*Height)))&~size_t(3);
       livePartialArea.push_back(double(cw)*ch/(double(Width)*Height));
      }
     }
@@ -1149,10 +1189,12 @@ int wmain(int argc, wchar_t **argv)
    if(fec)estimatedWireBytes+=FragmentPayloadBytes+sizeof(DatagramHeader)+(encryptedVideo?32:16)+28+38;
   }
   if(!partialFrame)lastEstimatedWireMbps=double(estimatedWireBytes)*8.0*CaptureFps/1000000.0;
+  // Compare at the unscaled budget so receiver-loss scaling is not undone here.
+  const double unscaledWireBytes=double(estimatedWireBytes)/budgetScale;
   if(wireBytesPerFrame>0&&!partialFrame&&frameUsable){
-   if(double(estimatedWireBytes)>wireBytesPerFrame*1.01)
-    rate.maximum_bitstream_size=std::max<size_t>(65536,size_t(double(rate.maximum_bitstream_size)*wireBytesPerFrame/double(estimatedWireBytes)*0.99))&~size_t(3);
-   else if(double(estimatedWireBytes)<wireBytesPerFrame*0.98&&rate.maximum_bitstream_size<std::min(maxFrameBytes,sendDeadlineBudget))
+   if(unscaledWireBytes>wireBytesPerFrame*1.01)
+    rate.maximum_bitstream_size=std::max<size_t>(65536,size_t(double(rate.maximum_bitstream_size)*wireBytesPerFrame/unscaledWireBytes*0.99))&~size_t(3);
+   else if(unscaledWireBytes<wireBytesPerFrame*0.98&&rate.maximum_bitstream_size<std::min(maxFrameBytes,sendDeadlineBudget))
     rate.maximum_bitstream_size=std::min(std::min(maxFrameBytes,sendDeadlineBudget),rate.maximum_bitstream_size+std::max<size_t>(256,rate.maximum_bitstream_size/200))&~size_t(3);
   }
 		if (FAILED(d3dContext4->Wait(fence.Get(), timeline)))
@@ -1165,6 +1207,7 @@ int wmain(int argc, wchar_t **argv)
 		{
 			if (packetCount > UINT16_MAX) { std::fprintf(stderr, "packet count overflow\n"); return 21; }
 			networkSender->Publish(bitstream, packets, packetCount, uint32_t(frame), captureUtcMs, sourceStart,stages,partialFrame?PartialDatagramMagic:FullDatagramMagic);
+			publishedPartial[1]=publishedPartial[0];publishedPartial[0]=partialFrame;
 		}
 		if(!networkSender)liveFrameToUdpMs.push_back(std::chrono::duration<double, std::milli>(Clock::now() - frameStart).count());
 

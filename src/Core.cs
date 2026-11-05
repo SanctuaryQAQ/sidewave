@@ -69,7 +69,8 @@ class Settings {
  public bool AllowTearing=false;
  public bool PacketProtection=false;
  public int ProtectionPacketBytes=32768;
- public int SendPacingMbps=0;
+ // Datagram pacing: -1 follows the link budget, 0 sends each frame as one burst.
+ public int SendPacingMbps=-1;
  public bool CaptureBackpressure=false;
  public bool PipelinedSend=false;
  public bool SkipImmediateSend=false;
@@ -79,6 +80,8 @@ class Settings {
  public bool ClientCursor=false;
  // Capture a desktop update immediately; fixed-cadence repeats still fill gaps.
  public bool CaptureOnUpdate=true;
+ // Lower the frame budget while the receiver loses frames; applies without a restart.
+ public bool AdaptiveBitrate=true;
  public bool RioSend=false;
  public bool ConnectedUdp=false;
  public int SendBufferBytes=131072;
@@ -256,7 +259,7 @@ class Engine:IDisposable {
  public void Start(string args){
   Stop();if(!File.Exists(exe))throw new FileNotFoundException("缺少视频组件",exe);
   var si=new ProcessStartInfo(exe,args){UseShellExecute=false,CreateNoWindow=true,WorkingDirectory=Paths.Bin,
-    RedirectStandardError=true,RedirectStandardOutput=true};
+    RedirectStandardError=true,RedirectStandardOutput=true,RedirectStandardInput=true};
   si.EnvironmentVariables["SIDEWAVE_RUNTIME"]=Paths.Runtime;
   // The installed RTSS Vulkan manifest defines this per-process opt-out.
   si.EnvironmentVariables["DISABLE_RTSS_LAYER"]="1";
@@ -275,6 +278,11 @@ class Engine:IDisposable {
   if(!ChildJob.Attach(process)){process.Kill();process.WaitForExit();throw new Exception("无法建立视频组件的自动清理任务。");}
  }
  public void Ensure(){if(!Alive)throw new Exception("视频组件已退出。"+ExitDiagnostic);}
+ // Runtime adjustment for a running engine; a line it does not know is ignored.
+ public void Command(string line){
+  try{if(process!=null&&!process.HasExited){process.StandardInput.WriteLine(line);process.StandardInput.Flush();}}
+  catch(Exception e){Paths.Log(role,"Engine command failed: "+e.Message);}
+ }
  public void Stop(){
   if(process==null)return;
   // An already exited process failed before Stop was requested. Keep that
@@ -299,6 +307,43 @@ class VideoRecovery {
  public bool TryAttempt(DateTime now){if(!Pending||Exhausted||now<next)return false;++Attempts;next=now.AddSeconds(1<<Attempts);return true;}
  public void Recovered(DateTime now){Pending=false;healthySince=now;}
  public void Healthy(DateTime now){if(healthySince==DateTime.MinValue)healthySince=now;if((now-healthySince).TotalSeconds>=60)Reset();}
+}
+// Lowers the sender's frame budget while the receiver loses frames and probes
+// back up once delivery is clean. A cut that does not reduce loss (a faulty
+// adapter, Wi-Fi, a lossy switch) is undone and suspended, so loss that the
+// budget cannot fix never drains quality.
+class AdaptiveBitrate {
+ public const double Floor=0.5,Cut=0.85,Step=0.05,LossyRatio=0.04,CleanRatio=0.01;
+ public double Scale{get;private set;}
+ public double LastLoss{get;private set;}
+ long started,incomplete;int lossy,clean,verify;
+ double scaleBeforeCut,lossAtCut,verifyFrames,verifyLost;DateTime suspendedUntil;
+ public AdaptiveBitrate(){Reset();}
+ public void Reset(){Scale=1;LastLoss=0;started=-1;incomplete=0;lossy=clean=verify=0;suspendedUntil=DateTime.MinValue;}
+ // Cumulative receiver counters sampled about once per second; true when Scale changed.
+ public bool Observe(DateTime now,long startedFrames,long incompleteFrames){
+  if(started<0||startedFrames<started||incompleteFrames<incomplete){started=startedFrames;incomplete=incompleteFrames;return false;}
+  long frames=startedFrames-started,lost=incompleteFrames-incomplete;started=startedFrames;incomplete=incompleteFrames;
+  // An idle desktop or a stalled link is not a bitrate signal.
+  if(frames<20)return false;
+  LastLoss=(double)lost/frames;double before=Scale;
+  if(verify>0){
+   verifyFrames+=frames;verifyLost+=lost;
+   if(--verify>0)return false;
+   double after=verifyLost/verifyFrames;
+   if(after>=LossyRatio&&after>=lossAtCut*0.6){Scale=scaleBeforeCut;suspendedUntil=now.AddSeconds(60);}
+   lossy=clean=0;return Scale!=before;
+  }
+  if(LastLoss>=LossyRatio){
+   clean=0;
+   if(++lossy>=2&&Scale>Floor&&now>=suspendedUntil){lossy=0;scaleBeforeCut=Scale;lossAtCut=LastLoss;Scale=Math.Max(Floor,Scale*Cut);verify=3;verifyFrames=verifyLost=0;}
+  }else{
+   lossy=0;
+   if(LastLoss>=CleanRatio)clean=0;
+   else if(++clean>=5&&Scale<1){clean=0;Scale=Math.Min(1,Scale+Step);}
+  }
+  return Scale!=before;
+ }
 }
 static class NetworkLink {
  public static int Mbps(IPAddress address){

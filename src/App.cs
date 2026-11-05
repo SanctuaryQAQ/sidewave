@@ -132,7 +132,7 @@ class App {
   if(!new[]{0,65536,131072,262144,524288,1048576,2097152,4194304}.Contains(sendBuffer))throw new IOException("Unsupported bounded send buffer size.");
   if(rio&&connectedUdp)throw new IOException("Connected sends are tested separately from RIO.");
   if(rio&&segmentation)throw new IOException("Select one sender transport.");
-  if(pacing!=0&&(pacing<100||pacing>900)||pacing>0&&(segmentation||rio))throw new IOException("Unsupported datagram pacing setting.");
+  if(pacing<-1||pacing>0&&(pacing<100||pacing>900)||pacing>0&&(segmentation||rio))throw new IOException("Unsupported datagram pacing setting.");
   bool encryption=ControlBool(r,"videoEncryption",settings.VideoEncryption),protection=ControlBool(r,"packetProtection",settings.PacketProtection),tearing=ControlBool(r,"allowTearing",settings.AllowTearing);
   bool backpressure=ControlBool(r,"captureBackpressure",settings.CaptureBackpressure),oldBackpressure=settings.CaptureBackpressure;
   bool pipeline=ControlBool(r,"pipelinedSend",settings.PipelinedSend),oldPipeline=settings.PipelinedSend;
@@ -163,7 +163,7 @@ class App {
    else{if(w==0){w=link.NativeWidth;h=link.NativeHeight;}link.Apply(w,h,fps,budget);}
    settings.Save("host");
    UI(()=>{syncingControls=true;try{
-    C<CheckBox>("VideoEncryption").IsChecked=settings.VideoEncryption;C<CheckBox>("PacketProtection").IsChecked=settings.PacketProtection;C<CheckBox>("AllowTearing").IsChecked=settings.AllowTearing;C<CheckBox>("PartialFrames").IsChecked=settings.PartialFrames;C<CheckBox>("ClientCursor").IsChecked=settings.ClientCursor;
+    C<CheckBox>("VideoEncryption").IsChecked=settings.VideoEncryption;C<CheckBox>("PacketProtection").IsChecked=settings.PacketProtection;C<CheckBox>("AllowTearing").IsChecked=settings.AllowTearing;C<CheckBox>("PartialFrames").IsChecked=settings.PartialFrames;C<CheckBox>("ClientCursor").IsChecked=settings.ClientCursor;C<CheckBox>("SendPacing").IsChecked=settings.SendPacingMbps!=0;
     C<ComboBox>("FrameRate").SelectedIndex=Array.IndexOf(new[]{60,120,165,240},settings.Fps);C<ComboBox>("Quality").SelectedIndex=Array.IndexOf(Budgets,settings.BudgetMbps);
     int ri=0;if(settings.NativeResolution!=true)for(int i=1;i<Resolutions.GetLength(0);++i)if(settings.Width==Resolutions[i,0]&&settings.Height==Resolutions[i,1])ri=i;C<ComboBox>("Resolution").SelectedIndex=ri;
    }finally{syncingControls=false;}});
@@ -275,6 +275,12 @@ class App {
   C<CheckBox>("AutoConnect").Checked+=autoChanged;C<CheckBox>("AutoConnect").Unchecked+=autoChanged;
   RoutedEventHandler protectionChanged=(s,e)=>{if(!syncingControls)SetStatus("丢包保护设置已更改，点击“应用画面设置”生效。");};
   C<CheckBox>("PacketProtection").Checked+=protectionChanged;C<CheckBox>("PacketProtection").Unchecked+=protectionChanged;
+  C<CheckBox>("SendPacing").IsChecked=settings.SendPacingMbps!=0;
+  RoutedEventHandler pacingChanged=(s,e)=>{if(!syncingControls)SetStatus("发送整形设置已更改，点击“应用画面设置”生效。");};
+  C<CheckBox>("SendPacing").Checked+=pacingChanged;C<CheckBox>("SendPacing").Unchecked+=pacingChanged;
+  C<CheckBox>("AdaptiveBitrate").IsChecked=settings.AdaptiveBitrate;
+  RoutedEventHandler adaptiveChanged=(s,e)=>{if(syncingControls)return;settings.AdaptiveBitrate=C<CheckBox>("AdaptiveBitrate").IsChecked==true;settings.Save("host");SetStatus(settings.AdaptiveBitrate?"已开启丢包时自动降低画质。":"已关闭丢包时自动降低画质。");};
+  C<CheckBox>("AdaptiveBitrate").Checked+=adaptiveChanged;C<CheckBox>("AdaptiveBitrate").Unchecked+=adaptiveChanged;
   C<TextBox>("Address").Text=settings.LastIp;
   discovery=new Discovery(settings.DeviceId,null);
   discovery.Found+=p=>UI(()=>{
@@ -309,6 +315,8 @@ class App {
   settings.AllowTearing=C<CheckBox>("AllowTearing").IsChecked==true;
   settings.PartialFrames=C<CheckBox>("PartialFrames").IsChecked==true;
   settings.ClientCursor=C<CheckBox>("ClientCursor").IsChecked==true;
+  // A rate chosen through local control stays until the box is unticked.
+  settings.SendPacingMbps=C<CheckBox>("SendPacing").IsChecked==true?(settings.SendPacingMbps>0?settings.SendPacingMbps:-1):0;
   settings.PacketProtection=C<CheckBox>("PacketProtection").IsChecked==true;
   int index=C<ComboBox>("Resolution").SelectedIndex,w=0,h=0;
   index=Math.Max(0,Math.Min(index,Resolutions.GetLength(0)-1));w=Resolutions[index,0];h=Resolutions[index,1];settings.NativeResolution=index==0;
@@ -343,7 +351,7 @@ class App {
   C<Button>("Disconnect").Content=Language.Tr(busy&&busyAction=="disconnect"?"正在断开…":"断开");
   C<Button>("Apply").Content=Language.Tr(busy&&busyAction=="apply"?"正在应用…":"应用画面设置");
   C<ComboBox>("Resolution").IsEnabled=!busy;C<ComboBox>("FrameRate").IsEnabled=!busy;C<ComboBox>("Quality").IsEnabled=!busy;
-  C<CheckBox>("VideoEncryption").IsEnabled=!busy;C<CheckBox>("PacketProtection").IsEnabled=!busy;C<CheckBox>("AllowTearing").IsEnabled=!busy;C<CheckBox>("PartialFrames").IsEnabled=!busy;C<CheckBox>("ClientCursor").IsEnabled=!busy;
+  C<CheckBox>("VideoEncryption").IsEnabled=!busy;C<CheckBox>("PacketProtection").IsEnabled=!busy;C<CheckBox>("AllowTearing").IsEnabled=!busy;C<CheckBox>("PartialFrames").IsEnabled=!busy;C<CheckBox>("ClientCursor").IsEnabled=!busy;C<CheckBox>("SendPacing").IsEnabled=!busy;
   if(!link.Connected)C<TextBlock>("Telemetry").Text="";
  });}
  void ScheduleRetry(){nextRetry=DateTime.UtcNow.AddSeconds(retrySeconds);retrySeconds=Math.Min(30,retrySeconds*2);}
@@ -397,6 +405,8 @@ class App {
       if(data!=null&&(link.ReceiverPid==0||Json.I(data,"pid")==link.ReceiverPid)){
        telemetryJson=Json.Write(data);Interlocked.Exchange(ref telemetryTime,DateTime.UtcNow.Ticks);
        Paths.Atomic(Path.Combine(Paths.Runtime,"remote-stats.json"),telemetryJson);
+       link.ObserveDelivery(data);
+       string quality=link.Bitrate.Scale<1?" · 画质自动降至 "+Math.Round(link.Bitrate.Scale*100)+"%":"";
        bool displayFeedback=Json.S(data,"display_feedback_available")=="True";
        string fps=displayFeedback?Json.S(data,"display_observed_fps_1s","--"):Json.S(data,"present_fps_1s","--");
        bool valid=Json.S(data,"hud_latency_available")=="True";
@@ -405,13 +415,16 @@ class App {
        double number;
        if(Double.TryParse(fps,System.Globalization.NumberStyles.Float,System.Globalization.CultureInfo.InvariantCulture,out number))fps=Math.Round(number).ToString("0");
        if(Double.TryParse(latency,System.Globalization.NumberStyles.Float,System.Globalization.CultureInfo.InvariantCulture,out number))latency=number.ToString("0.0");
-       UI(()=>{var label=C<TextBlock>("Telemetry");label.Text=Language.Tr("FPS "+fps+" · 全链路延迟 "+latency+" ms · 时钟 ±"+bound+" ms");label.ToolTip=Language.Tr("台式机桌面内容更新到笔记本系统显示反馈，包含渲染和显示等待；不包含液晶面板响应时间。");});
+       UI(()=>{var label=C<TextBlock>("Telemetry");label.Text=Language.Tr("FPS "+fps+" · 全链路延迟 "+latency+" ms · 时钟 ±"+bound+" ms"+quality);label.ToolTip=Language.Tr("台式机桌面内容更新到笔记本系统显示反馈，包含渲染和显示等待；不包含液晶面板响应时间。");});
       }
-      // A receiver window closed on the laptop cancels video intent even if the sender
-      // exited concurrently. Never resurrect a deliberately closed receiver.
+      // A receiver window closed on the laptop ends the session even if the sender
+      // exited concurrently: disconnect so the window offers Connect again, and
+      // never resurrect a deliberately closed receiver.
       if(link.VideoRequested&&link.ReceiverPid>0&&Json.S(stats,"alive")=="False"){
-       link.StopVideo();senderRecovery.Reset();ClearTelemetry();
-       SetStatus(Json.I(stats,"exitCode")==0?"副机已返回本地桌面，点击应用可继续。":"副机视频组件已退出，点击应用可重试："+Json.S(stats,"exitDiagnostic"));
+       bool closed=Json.I(stats,"exitCode")==0;string diagnostic=Json.S(stats,"exitDiagnostic");
+       manualStop=true;senderRecovery.Reset();link.Disconnect();ClearTelemetry();
+       SetStatus(closed?"副机已关闭副屏，连接已断开。点击“连接副机”重新开始。":"副机视频组件已退出，连接已断开，点击“连接副机”重试："+diagnostic);
+       Buttons();
       }
       RecoverExitedSender(now);
       if(data!=null&&link.ReceiverPid>0&&Json.I(data,"pid")==link.ReceiverPid)RecoverVideoAfterNetworkChange(data);
